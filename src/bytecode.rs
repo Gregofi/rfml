@@ -1,6 +1,7 @@
 use std::io::Write;
+use crate::constants::ConstantPoolIndex;
+use crate::constants::ConstantPool;
 
-pub type ConstantPoolIndex = i16;
 pub type LocalFrameIndex = i16;
 pub type ArgsCount = i8;
 
@@ -83,3 +84,6 @@ impl Serializable for Bytecode {
         }
     }
 }
+
+pub struct Program(Vec<Bytecode>);
+
