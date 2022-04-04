@@ -1,8 +1,10 @@
 use std::fmt::Debug;
-use std::cmp::PartialEq;
 use serde::{Serialize, Deserialize};
 
-#[derive(PartialEq,Debug,Serialize,Deserialize,Clone)]
+
+type Identifier = u16;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum AST {
     Integer(i32),
     Boolean(bool),
@@ -21,12 +23,9 @@ pub enum AST {
     AssignArray { array: Box<AST>, index: Box<AST>, value: Box<AST> },
 
     Function { name: Identifier, parameters: Vec<Identifier>, body: Box<AST> },
-    //Operator { operator: Operator, parameters: Vec<Identifier>, body: Box<AST> },    // TODO Consider merging with function
 
     CallFunction { name: Identifier, arguments: Vec<Box<AST>> },
     CallMethod { object: Box<AST>, name: Identifier, arguments: Vec<Box<AST>> },
-    //CallOperator { object: Box<AST>, operator: Operator, arguments: Vec<Box<AST>> }, // TODO Consider removing
-    //Operation { operator: Operator, left: Box<AST>, right: Box<AST> },               // TODO Consider removing
 
     Top (Vec<Box<AST>>),
     Block (Vec<Box<AST>>),
@@ -34,4 +33,16 @@ pub enum AST {
     Conditional { condition: Box<AST>, consequent: Box<AST>, alternative: Box<AST> },
 
     Print { format: String, arguments: Vec<Box<AST>> },
+}
+
+
+
+pub trait IntoBoxed {
+    fn into_boxed(self) -> Box<Self>;
+}
+
+impl IntoBoxed for AST {
+    fn into_boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
 }
