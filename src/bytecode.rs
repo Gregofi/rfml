@@ -85,5 +85,24 @@ impl Serializable for Bytecode {
     }
 }
 
-pub struct Program(Vec<Bytecode>);
+#[derive(PartialEq, Clone)]
+pub struct Code {
+    pub insert_point: Vec<Bytecode>,
+}
+
+impl Code {
+    pub fn new() -> Code {
+        Code {
+            insert_point: Vec::new(),
+        }
+    }
+
+    pub fn write_inst(&mut self, inst: Bytecode) {
+        self.insert_point.push(inst)
+    }
+
+    pub fn write_insts(&mut self, insts: Code) {
+        self.insert_point.extend(insts.insert_point);
+    }
+}
 

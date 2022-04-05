@@ -1,3 +1,4 @@
+use crate::bytecode::Code;
 
 pub type ConstantPoolIndex = i16;
 
@@ -5,14 +6,14 @@ fn from_usize(i: usize) -> ConstantPoolIndex {
     i.try_into().unwrap()
 }
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Constant {
     Integer(i32),
     Boolean(bool),
     Null,
     String(String),
     Slot{name: i32},
-    Function{name: ConstantPoolIndex, parameters: u8, locals: u16, start: usize, len: usize}
+    Function{name: ConstantPoolIndex, parameters: u8, locals: u16, code: Code}
 }
 
 impl From<i32> for Constant {

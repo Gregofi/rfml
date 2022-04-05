@@ -1,19 +1,10 @@
 use crate::ast::{self, AST};
-use crate::bytecode::{Bytecode, LocalFrameIndex};
+use crate::bytecode::*;
 use crate::constants::*;
 use std::collections::HashMap;
 
 type Offset = i32;
 
-pub struct Code {
-    insert_point: Vec<Bytecode>,
-}
-
-impl Code {
-    pub fn write_inst(&mut self, inst: Bytecode) {
-        self.insert_point.push(inst)
-    }
-}
 
 trait Environments {
     fn enter_scope(&mut self);
@@ -80,7 +71,12 @@ impl Environments for VecEnvironments {
     }
 }
 
-pub fn compile(ast: &AST, pool: &mut ConstantPool, code: &mut Code, frame: &mut Frame) -> Result<(), &'static str> {
+pub fn compile(
+    ast: &AST,
+    pool: &mut ConstantPool,
+    code: &mut Code,
+    frame: &mut Frame,
+) -> Result<(), &'static str> {
     match ast {
         AST::Integer(val) => {
             // Add it to constant pool.
@@ -134,26 +130,26 @@ pub fn compile(ast: &AST, pool: &mut ConstantPool, code: &mut Code, frame: &mut 
             }
 
             let mut frame = Frame::Local(env);
+            let mut fun_code = Code::new();
 
-            let code_begin = code.insert_point.len() + 1;
-            compile(body, pool, code, &mut frame)?;
-            let code_end = code.insert_point.len();
+            compile(body, pool, &mut fun_code, &mut frame)?;
 
             let locals_cnt = match frame {
                 Frame::Local(env) => env.var_cnt,
                 _ => unreachable!(),
             };
 
-            Constant::Function{
+            let func = Constant::Function {
                 name: pool.push(Constant::from(name.0.clone())),
                 parameters: parameters.len().try_into().unwrap(),
                 locals: locals_cnt,
-                start: code_begin,
-                len: code_end - code_begin + 1,
+                code: fun_code
             };
 
+            pool.push(func);
+
             Ok(())
-        },
+        }
         AST::CallFunction { name, arguments } => todo!(),
         AST::CallMethod {
             object,
@@ -162,8 +158,26 @@ pub fn compile(ast: &AST, pool: &mut ConstantPool, code: &mut Code, frame: &mut 
         } => todo!(),
         // Here, global statements or functions definitions are
         AST::Top(asts) => {
+            // Create the 'main' function
+            let mut code_main = Code::new();
 
-            unimplemented!();
+            for ast in asts.iter() {
+                // We send here code_main even if new function is encountered,
+                // but that function will define it's own code vector anyway.
+                compile(ast, pool, &mut code_main, &mut Frame::Top)?;
+            }
+
+            let func_name = pool.push(Constant::from(String::from("λ:")));
+            let fun = Constant::Function {
+                name: func_name,
+                parameters: 0,
+                locals: 0,
+                code: code_main,
+            };
+
+            pool.push(fun);
+
+            Ok(())
         }
         AST::Block(_) => todo!(),
         AST::Loop { condition, body } => todo!(),
