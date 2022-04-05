@@ -2,7 +2,7 @@ use std::io::Write;
 use crate::constants::ConstantPoolIndex;
 use crate::constants::ConstantPool;
 
-pub type LocalFrameIndex = i16;
+pub type LocalFrameIndex = u16;
 pub type ArgsCount = i8;
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]

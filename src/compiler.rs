@@ -21,12 +21,14 @@ trait Environments {
     fn introduce_variable(&mut self, str: String) -> Result<LocalFrameIndex, String>;
 }
 
-struct VecEnvironments {
+#[derive(PartialEq)]
+pub struct VecEnvironments {
     envs: Vec<HashMap<String, LocalFrameIndex>>,
-    var_cnt: i16,
+    var_cnt: u16,
 }
 
-enum Frame {
+#[derive(PartialEq)]
+pub enum Frame {
     // For globals we use the variable and function names, so there is
     // no need to store it as indexes.
     Top,
@@ -51,7 +53,9 @@ impl Environments for VecEnvironments {
     fn leave_scope(&mut self) -> Result<(), &'static str> {
         match self.envs.pop() {
             Some(env) => {
-                self.var_cnt -= env.keys().len() as i16;
+                // This is done to save space
+                // Hovewer, with this we can't report the number of local vars.
+                // self.var_cnt -= env.keys().len() as i16;
                 Ok(())
             }
             None => Err("No env to pop."),
@@ -76,7 +80,7 @@ impl Environments for VecEnvironments {
     }
 }
 
-pub fn compile(ast: &AST, pool: &mut ConstantPool, code: &mut Code) -> Result<(), &'static str> {
+pub fn compile(ast: &AST, pool: &mut ConstantPool, code: &mut Code, frame: &mut Frame) -> Result<(), &'static str> {
     match ast {
         AST::Integer(val) => {
             // Add it to constant pool.
@@ -115,15 +119,49 @@ pub fn compile(ast: &AST, pool: &mut ConstantPool, code: &mut Code) -> Result<()
             name,
             parameters,
             body,
-        } => todo!(),
+        } => {
+            // Frame must be top
+            if matches!(frame, Frame::Local(_)) {
+                return Err("Functions can't be nested");
+            }
+
+            let mut env = VecEnvironments::new();
+            env.enter_scope();
+
+            // Add arguments
+            for param in parameters.iter() {
+                env.introduce_variable(param.0.clone());
+            }
+
+            let mut frame = Frame::Local(env);
+
+            let code_begin = code.insert_point.len() + 1;
+            compile(body, pool, code, &mut frame)?;
+            let code_end = code.insert_point.len();
+
+            let locals_cnt = match frame {
+                Frame::Local(env) => env.var_cnt,
+                _ => unreachable!(),
+            };
+
+            Constant::Function{
+                name: pool.push(Constant::from(name.0.clone())),
+                parameters: parameters.len().try_into().unwrap(),
+                locals: locals_cnt,
+                start: code_begin,
+                len: code_end - code_begin + 1,
+            };
+
+            Ok(())
+        },
         AST::CallFunction { name, arguments } => todo!(),
         AST::CallMethod {
             object,
             name,
             arguments,
         } => todo!(),
-        AST::Top(_) => {
-            // Here, global statements or functions definitions are
+        // Here, global statements or functions definitions are
+        AST::Top(asts) => {
 
             unimplemented!();
         }

@@ -2,7 +2,12 @@ use std::fmt::Debug;
 use serde::{Serialize, Deserialize};
 
 
-type Identifier = u16;
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Identifier(pub String);
+
+impl Identifier {
+    pub fn as_str(&self) -> &str { &self.0 }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum AST {
@@ -34,8 +39,6 @@ pub enum AST {
 
     Print { format: String, arguments: Vec<Box<AST>> },
 }
-
-
 
 pub trait IntoBoxed {
     fn into_boxed(self) -> Box<Self>;

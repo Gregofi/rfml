@@ -12,7 +12,7 @@ pub enum Constant {
     Null,
     String(String),
     Slot{name: i32},
-    Function{name: i32, parameters: i32, locals: i32, code: Box<Vec<i8>>}
+    Function{name: ConstantPoolIndex, parameters: u8, locals: u16, start: usize, len: usize}
 }
 
 impl From<i32> for Constant {
@@ -27,6 +27,11 @@ impl From<bool> for Constant {
     }
 }
 
+impl From<String> for Constant {
+    fn from(s: String) -> Self {
+        Constant::String(s)
+    }
+}
 
 pub struct ConstantPool(Vec<Constant>);
 impl ConstantPool {
