@@ -61,7 +61,10 @@ pub enum Bytecode {
 impl Serializable for Bytecode {
     fn serializable_byte<W: Write> (&self, output: &mut W) -> std::io::Result<()> {
         match self {
-            Bytecode::Literal { index } => todo!(),
+            Bytecode::Literal { index } => {
+                output.write(&0x01u8.to_le_bytes())?;
+                output.write(&index.to_le_bytes())?;
+            },
             Bytecode::GetLocal { index } => todo!(),
             Bytecode::SetLocal { index } => todo!(),
             Bytecode::GetGlobal { name } => todo!(),
@@ -80,8 +83,12 @@ impl Serializable for Bytecode {
             },
             Bytecode::Jump { label } => todo!(),
             Bytecode::Branch { label } => todo!(),
-            Bytecode::Return => todo!(),
-            Bytecode::Drop => todo!(),
+            Bytecode::Return => {
+                output.write(&0x0Fu8.to_le_bytes())?;
+            },
+            Bytecode::Drop => {
+                output.write(&0x10u8.to_le_bytes())?;
+            }
         };
 
         Ok(())

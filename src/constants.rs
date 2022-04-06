@@ -38,9 +38,17 @@ impl From<String> for Constant {
 impl Serializable for Constant {
     fn serializable_byte<W: std::io::Write> (&self, output: &mut W) -> std::io::Result<()> {
         match self {
-            Constant::Integer(_) => todo!(),
-            Constant::Boolean(_) => todo!(),
-            Constant::Null => todo!(),
+            Constant::Integer(val) => {
+                output.write(&[0x00 as u8])?;
+                output.write(&(val.to_le_bytes()))?;
+            },
+            Constant::Boolean(val) => {
+                output.write(&[0x06 as u8])?;
+                output.write(&((*val as u8).to_le_bytes()))?;
+            },
+            Constant::Null => {
+                output.write(&[0x01 as u8])?;
+            },
             Constant::String(str) => {
                 output.write(&[0x02 as u8])?; // Tag
                 output.write(&(str.len() as u32).to_le_bytes())?;
