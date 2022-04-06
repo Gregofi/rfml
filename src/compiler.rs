@@ -1,12 +1,10 @@
-use crate::ast::{self, AST};
+use crate::ast::AST;
 use crate::bytecode::*;
 use crate::constants::*;
 use crate::serializer::Serializable;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
-
-type Offset = i32;
 
 trait Environments {
     fn enter_scope(&mut self);
@@ -46,9 +44,6 @@ impl Environments for VecEnvironments {
     fn leave_scope(&mut self) -> Result<(), &'static str> {
         match self.envs.pop() {
             Some(env) => {
-                // This is done to save space
-                // Hovewer, with this we can't report the number of local vars.
-                // self.var_cnt -= env.keys().len() as i16;
                 Ok(())
             }
             None => Err("No env to pop."),
@@ -203,7 +198,13 @@ pub fn _compile(
 
             Ok(())
         }
-        AST::Block(_) => todo!(),
+        AST::Block(asts) => {
+            for ast in asts.iter() {
+                _compile(ast, pool, code, frame, true)?;
+            }
+
+            Ok(())
+        },
         AST::Loop { condition, body } => todo!(),
         AST::Conditional {
             condition,
