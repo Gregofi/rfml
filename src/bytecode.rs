@@ -73,12 +73,18 @@ impl Serializable for Bytecode {
             Bytecode::CallMethod { name, arguments } => todo!(),
             Bytecode::CallFunction { name, arguments } => todo!(),
             Bytecode::Label { name } => todo!(),
-            Bytecode::Print { format, arguments } => todo!(),
+            Bytecode::Print { format, arguments } => {
+                output.write(&[0x02 as u8]);
+                output.write(&format.to_le_bytes());
+                output.write(&arguments.to_le_bytes());
+            },
             Bytecode::Jump { label } => todo!(),
             Bytecode::Branch { label } => todo!(),
             Bytecode::Return => todo!(),
             Bytecode::Drop => todo!(),
-        }
+        };
+
+        Ok(())
     }
 
     fn serializable_human (&self) {
