@@ -42,11 +42,20 @@ impl Serializable for Constant {
             Constant::Boolean(_) => todo!(),
             Constant::Null => todo!(),
             Constant::String(str) => {
+                output.write(&[0x02 as u8]); // Tag
+                output.write(&(str.len() as u32).to_le_bytes());
                 output.write(str.as_bytes());
             },
             Constant::Slot { name } => todo!(),
             Constant::Function { name, parameters, locals, code } => {
-                
+                output.write(&[0x03 as u8]);
+                output.write(&name.to_le_bytes());
+                output.write(&parameters.to_le_bytes());
+                output.write(&locals.to_le_bytes());
+                output.write(&code.len().to_le_bytes());
+                for bytecode in code.insert_point.iter() {
+                    bytecode.serializable_byte(output)?;
+                }
             },
         }
 
@@ -94,37 +103,19 @@ impl ConstantPool {
     pub fn find(&mut self, constant: &Constant) -> Option<ConstantPoolIndex> {
         self.0.iter().position(|x| constant == x).map(|x| from_usize(x))
     }
+
+    pub fn len(&self) -> u16 {
+        self.0.len().try_into().unwrap()
+    }
 }
 
 
 impl Serializable for ConstantPool {
     fn serializable_byte<W: std::io::Write> (&self, output: &mut W) -> Result<(), &'static str> {
-        let mut whole_code = Code::new();
+        output.write(&self.len().to_le_bytes());
 
         for constant in self.0.iter() {
-            match constant {
-                Constant::Integer(_) => todo!(),
-                Constant::Boolean(_) => todo!(),
-                Constant::Null => todo!(),
-                Constant::String(str) => {
-                    output.write(str.as_bytes());
-                },
-                Constant::Slot { name } => todo!(),
-                Constant::Function { name, parameters, locals, code } => {
-                    output.write(&name.to_le_bytes());
-                    output.write(&parameters.to_le_bytes());
-                    output.write(&locals.to_le_bytes());
-                    // Beginning of the code
-                    output.write(&whole_code.insert_point.len().to_le_bytes());
-                    // Size of the code
-                    output.write(&code.insert_point.len().to_le_bytes());
-                    whole_code.write_insts(code.clone());
-                },
-            }
-        }
-
-        for bytecode in whole_code.insert_point.iter() {
-            bytecode.serializable_byte(output)?;
+            constant.serializable_byte(output)?;
         }
 
         Ok(())

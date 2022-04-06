@@ -3,6 +3,8 @@ use crate::bytecode::*;
 use crate::constants::*;
 use crate::serializer::Serializable;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 
 type Offset = i32;
 
@@ -79,6 +81,16 @@ pub fn compile(ast: &AST) -> Result<(), &'static str> {
     _compile(ast, &mut pool, &mut code_dummy, &mut frame)?;
 
     pool.serializable_human();
+    let mut f = File::create("foo.bc").expect("Unable to open output file.");
+    pool.serializable_byte(&mut f)?;
+
+    // TODO: Globals
+    f.write(&[0 as u8, 0 as u8]);
+
+    // Main function is always added last.
+    f.write(&(pool.len() - 1).to_le_bytes());
+
+
     Ok(())
 }
 
