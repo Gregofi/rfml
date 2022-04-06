@@ -111,6 +111,12 @@ impl Code {
         self.insert_point.push(inst)
     }
 
+    pub fn write_inst_unless(&mut self, inst: Bytecode, unless: bool) {
+        if !unless {
+            self.insert_point.push(inst)
+        }
+    }
+
     pub fn write_insts(&mut self, insts: Code) {
         self.insert_point.extend(insts.insert_point);
     }

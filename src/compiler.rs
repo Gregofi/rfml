@@ -78,7 +78,7 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     let mut code_dummy = Code::new();
     let mut frame = Frame::Top;
 
-    _compile(ast, &mut pool, &mut code_dummy, &mut frame);
+    _compile(ast, &mut pool, &mut code_dummy, &mut frame, true);
 
     let mut f = File::create("foo.bc").expect("Unable to open output file.");
     pool.serializable_byte(&mut f)?;
@@ -99,22 +99,23 @@ pub fn _compile(
     pool: &mut ConstantPool,
     code: &mut Code,
     frame: &mut Frame,
+    drop: bool
 ) -> Result<(), &'static str> {
     match ast {
         AST::Integer(val) => {
             // Add it to constant pool.
             let index = pool.push(Constant::from(*val));
-            code.write_inst(Bytecode::Literal { index });
+            code.write_inst_unless(Bytecode::Literal { index }, drop);
             Ok(())
         }
         AST::Boolean(val) => {
             let index = pool.push(Constant::from(*val));
-            code.write_inst(Bytecode::Literal { index });
+            code.write_inst_unless(Bytecode::Literal { index }, drop);
             Ok(())
         }
         AST::Null => {
             let index = pool.push(Constant::Null);
-            code.write_inst(Bytecode::Literal { index });
+            code.write_inst_unless(Bytecode::Literal { index }, drop);
             Ok(())
         }
         AST::Variable { name, value } => todo!(),
@@ -155,7 +156,7 @@ pub fn _compile(
             let mut frame = Frame::Local(env);
             let mut fun_code = Code::new();
 
-            _compile(body, pool, &mut fun_code, &mut frame)?;
+            _compile(body, pool, &mut fun_code, &mut frame, true)?;
 
             let locals_cnt = match frame {
                 Frame::Local(env) => env.var_cnt,
@@ -187,7 +188,7 @@ pub fn _compile(
             for ast in asts.iter() {
                 // We send here code_main even if new function is encountered,
                 // but that function will define it's own code vector anyway.
-                _compile(ast, pool, &mut code_main, &mut Frame::Top)?;
+                _compile(ast, pool, &mut code_main, &mut Frame::Top, true)?;
             }
 
             let func_name = pool.push(Constant::from(String::from("λ:")));
@@ -212,7 +213,7 @@ pub fn _compile(
         AST::Print { format, arguments } => {
             let string = pool.push(Constant::from(format.clone()));
             for ast in arguments.iter() {
-                _compile(ast, pool, code, frame)?;
+                _compile(ast, pool, code, frame, true)?;
             }
             let print = Bytecode::Print{ format: string, arguments: arguments.len().try_into().unwrap() };
             code.write_inst(print);
