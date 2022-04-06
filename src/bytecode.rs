@@ -59,7 +59,7 @@ pub enum Bytecode {
 }
 
 impl Serializable for Bytecode {
-    fn serializable_byte<W: Write> (&self, output: &mut W) -> Result<(), &'static str> {
+    fn serializable_byte<W: Write> (&self, output: &mut W) -> std::io::Result<()> {
         match self {
             Bytecode::Literal { index } => todo!(),
             Bytecode::GetLocal { index } => todo!(),

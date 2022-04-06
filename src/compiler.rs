@@ -73,21 +73,21 @@ impl Environments for VecEnvironments {
     }
 }
 
-pub fn compile(ast: &AST) -> Result<(), &'static str> {
+pub fn compile(ast: &AST) -> std::io::Result<()> {
     let mut pool = ConstantPool::new();
     let mut code_dummy = Code::new();
     let mut frame = Frame::Top;
 
-    _compile(ast, &mut pool, &mut code_dummy, &mut frame)?;
+    _compile(ast, &mut pool, &mut code_dummy, &mut frame);
 
     let mut f = File::create("foo.bc").expect("Unable to open output file.");
     pool.serializable_byte(&mut f)?;
 
     // TODO: Globals
-    f.write(&[0 as u8, 0 as u8]);
+    f.write(&[0 as u8, 0 as u8])?;
 
     // Main function is always added last.
-    f.write(&(pool.len() - 1).to_le_bytes());
+    f.write(&(pool.len() - 1).to_le_bytes())?;
 
     println!("{:?}", pool);
 
