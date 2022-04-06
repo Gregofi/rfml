@@ -50,20 +50,20 @@ impl Serializable for Constant {
     fn serializable_human(&self) {
         match self {
             Constant::Integer(val) => {
-                print!("{0}", val);
+                print!("Integer: {0}", val);
             }
             Constant::Boolean(val) => {
-                print!("{0}", val);
+                print!("Boolean: {0}", val);
             },
             Constant::Null => {
-                print!("null");
+                print!("Null");
             },
             Constant::String(str) => {
-                print!("{0}", str);
+                print!("String: \"{0}\"", str);
             },
             Constant::Slot { name } => todo!(),
             Constant::Function { name, parameters, locals, code } => {
-                print!("fn{{ name: {0}, parameters: {1}, locals: {2}, code:\n", name, parameters, locals);
+                print!("Function: {{ name: {0}, parameters: {1}, locals: {2}, code:\n", name, parameters, locals);
                 for inst in code.insert_point.iter() {
                     inst.serializable_human();
                     println!("");

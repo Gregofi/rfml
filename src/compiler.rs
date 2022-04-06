@@ -1,6 +1,7 @@
 use crate::ast::{self, AST};
 use crate::bytecode::*;
 use crate::constants::*;
+use crate::serializer::Serializable;
 use std::collections::HashMap;
 
 type Offset = i32;
@@ -77,6 +78,7 @@ pub fn compile(ast: &AST) -> Result<(), &'static str> {
 
     _compile(ast, &mut pool, &mut code_dummy, &mut frame)?;
 
+    pool.serializable_human();
     Ok(())
 }
 

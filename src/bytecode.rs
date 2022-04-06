@@ -98,7 +98,7 @@ impl Serializable for Bytecode {
             Bytecode::CallFunction { name, arguments } => todo!(),
             Bytecode::Label { name } => todo!(),
             Bytecode::Print { format, arguments } => {
-                print!("print {0} {1}", format, arguments);
+                print!("print str:{0} arg_cnt:{1}", format, arguments);
             }
             Bytecode::Jump { label } => todo!(),
             Bytecode::Branch { label } => todo!(),
