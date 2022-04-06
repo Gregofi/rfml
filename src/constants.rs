@@ -89,3 +89,18 @@ impl ConstantPool {
         self.0.iter().position(|x| constant == x).map(|x| from_usize(x))
     }
 }
+
+
+impl Serializable for ConstantPool {
+    fn serializable_byte<W: std::io::Write> (&self, output: &mut W) -> Result<(), &'static str> {
+        todo!()
+    }
+
+    fn serializable_human(&self) {
+        println!("Constant pool:");
+        for constant in self.0.iter() {
+            constant.serializable_human();
+            println!("");
+        }
+    }
+}
