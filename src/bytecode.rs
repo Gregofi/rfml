@@ -1,6 +1,7 @@
 use std::io::Write;
 use crate::constants::ConstantPoolIndex;
 use crate::constants::ConstantPool;
+use crate::serializer::Serializable;
 
 pub type LocalFrameIndex = u16;
 pub type ArgsCount = i8;
@@ -57,12 +58,8 @@ pub enum Bytecode {
     Drop,
 }
 
-trait Serializable {
-    fn serializable<W: Write> (&self, output: &mut W) -> Result<(), &'static str>;
-}
-
 impl Serializable for Bytecode {
-    fn serializable<W: Write> (&self, output: &mut W) -> Result<(), &'static str> {
+    fn serializable_byte<W: Write> (&self, output: &mut W) -> Result<(), &'static str> {
         match self {
             Bytecode::Literal { index } => todo!(),
             Bytecode::GetLocal { index } => todo!(),
@@ -82,6 +79,36 @@ impl Serializable for Bytecode {
             Bytecode::Return => todo!(),
             Bytecode::Drop => todo!(),
         }
+    }
+
+    fn serializable_human (&self) {
+        match self {
+            Bytecode::Literal { index } => {
+                print!("lit {0}", index);
+            }
+            Bytecode::GetLocal { index } => todo!(),
+            Bytecode::SetLocal { index } => todo!(),
+            Bytecode::GetGlobal { name } => todo!(),
+            Bytecode::SetGlobal { name } => todo!(),
+            Bytecode::Object { class } => todo!(),
+            Bytecode::Array => todo!(),
+            Bytecode::GetField { name } => todo!(),
+            Bytecode::SetField { name } => todo!(),
+            Bytecode::CallMethod { name, arguments } => todo!(),
+            Bytecode::CallFunction { name, arguments } => todo!(),
+            Bytecode::Label { name } => todo!(),
+            Bytecode::Print { format, arguments } => {
+                print!("print {0} {1}", format, arguments);
+            }
+            Bytecode::Jump { label } => todo!(),
+            Bytecode::Branch { label } => todo!(),
+            Bytecode::Return => {
+                print!("return");
+            },
+            Bytecode::Drop => {
+                print!("drop");
+            },
+        };
     }
 }
 

@@ -5,7 +5,6 @@ use std::collections::HashMap;
 
 type Offset = i32;
 
-
 trait Environments {
     fn enter_scope(&mut self);
     fn leave_scope(&mut self) -> Result<(), &'static str>;
@@ -71,7 +70,17 @@ impl Environments for VecEnvironments {
     }
 }
 
-pub fn compile(
+pub fn compile(ast: &AST) -> Result<(), &'static str> {
+    let mut pool = ConstantPool::new();
+    let mut code_dummy = Code::new();
+    let mut frame = Frame::Top;
+
+    _compile(ast, &mut pool, &mut code_dummy, &mut frame)?;
+
+    Ok(())
+}
+
+pub fn _compile(
     ast: &AST,
     pool: &mut ConstantPool,
     code: &mut Code,
@@ -132,7 +141,7 @@ pub fn compile(
             let mut frame = Frame::Local(env);
             let mut fun_code = Code::new();
 
-            compile(body, pool, &mut fun_code, &mut frame)?;
+            _compile(body, pool, &mut fun_code, &mut frame)?;
 
             let locals_cnt = match frame {
                 Frame::Local(env) => env.var_cnt,
@@ -164,7 +173,7 @@ pub fn compile(
             for ast in asts.iter() {
                 // We send here code_main even if new function is encountered,
                 // but that function will define it's own code vector anyway.
-                compile(ast, pool, &mut code_main, &mut Frame::Top)?;
+                _compile(ast, pool, &mut code_main, &mut Frame::Top)?;
             }
 
             let func_name = pool.push(Constant::from(String::from("λ:")));
@@ -186,7 +195,15 @@ pub fn compile(
             consequent,
             alternative,
         } => todo!(),
-        AST::Print { format, arguments } => todo!(),
+        AST::Print { format, arguments } => {
+            let string = pool.push(Constant::from(format.clone()));
+            let print = Bytecode::Print{ format: string, arguments: arguments.len().try_into().unwrap() };
+            code.write_inst(print);
+            for ast in arguments.iter() {
+                _compile(ast, pool, code, frame)?;
+            }
+            Ok(())
+        },
     }
 }
 
