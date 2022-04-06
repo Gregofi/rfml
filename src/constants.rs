@@ -1,7 +1,7 @@
 use crate::bytecode::Code;
 use crate::serializer::Serializable;
 
-pub type ConstantPoolIndex = i16;
+pub type ConstantPoolIndex = u16;
 
 fn from_usize(i: usize) -> ConstantPoolIndex {
     i.try_into().unwrap()
@@ -13,7 +13,7 @@ pub enum Constant {
     Boolean(bool),
     Null,
     String(String),
-    Slot{name: i32},
+    Slot{name: ConstantPoolIndex},
     Function{name: ConstantPoolIndex, parameters: u8, locals: u16, code: Code}
 }
 
@@ -50,11 +50,14 @@ impl Serializable for Constant {
                 output.write(&[0x01 as u8])?;
             },
             Constant::String(str) => {
-                output.write(&[0x02 as u8])?; // Tag
+                output.write(&[0x02 as u8])?;
                 output.write(&(str.len() as u32).to_le_bytes())?;
                 output.write(str.as_bytes())?;
             },
-            Constant::Slot { name } => todo!(),
+            Constant::Slot { name } => {
+                output.write(&0x04u8.to_le_bytes())?;
+                output.write(&name.to_le_bytes())?;
+            },
             Constant::Function { name, parameters, locals, code } => {
                 output.write(&[0x03 as u8])?;
                 output.write(&name.to_le_bytes())?;

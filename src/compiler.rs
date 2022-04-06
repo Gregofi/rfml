@@ -12,6 +12,20 @@ trait Environments {
     fn introduce_variable(&mut self, str: String) -> Result<LocalFrameIndex, String>;
 }
 
+struct Globals {
+    globals: Vec<ConstantPoolIndex>,
+}
+
+impl Globals {
+    pub fn new() -> Self {
+        Globals{ globals: Vec::new() }
+    }
+
+    pub fn introduce_variable(&mut self, index: ConstantPoolIndex) {
+        self.globals.push(index)
+    }
+}
+
 #[derive(PartialEq)]
 pub struct VecEnvironments {
     envs: Vec<HashMap<String, LocalFrameIndex>>,
@@ -72,6 +86,8 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     let mut pool = ConstantPool::new();
     let mut code_dummy = Code::new();
     let mut frame = Frame::Top;
+    let mut global_env = VecEnvironments::new();
+    let mut globals = 
 
     _compile(ast, &mut pool, &mut code_dummy, &mut frame, true);
 
@@ -89,7 +105,7 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn _compile(
+fn _compile(
     ast: &AST,
     pool: &mut ConstantPool,
     code: &mut Code,
