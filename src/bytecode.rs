@@ -137,5 +137,9 @@ impl Code {
     pub fn write_insts(&mut self, insts: Code) {
         self.insert_point.extend(insts.insert_point);
     }
+
+    pub fn len(&self) -> u32 {
+        self.insert_point.len().try_into().unwrap()
+    }
 }
 
