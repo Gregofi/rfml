@@ -3,6 +3,7 @@ use crate::bytecode::*;
 use crate::constants::*;
 use crate::serializer::Serializable;
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::io::Write;
 
@@ -10,6 +11,7 @@ trait Environments {
     fn enter_scope(&mut self);
     fn leave_scope(&mut self) -> Result<(), &'static str>;
     fn introduce_variable(&mut self, str: String) -> Result<LocalFrameIndex, &'static str>;
+    fn has_variable(&self, str: &String) -> bool;
 }
 
 struct Globals {
@@ -80,6 +82,17 @@ impl Environments for VecEnvironments {
         self.var_cnt += 1;
         Ok(self.var_cnt - 1)
     }
+
+    fn has_variable(&self, str: &String) -> bool {
+        for env in self.envs.iter().rev() {
+            let val = env.get(str);
+            match val {
+                Some(idx) => return true,
+                _ => (),
+            }
+        };
+        false
+    }
 }
 
 pub fn compile(ast: &AST) -> std::io::Result<()> {
@@ -135,6 +148,7 @@ fn _compile(
             Ok(())
         }
         AST::Variable { name, value } => {
+            _compile(value, pool, code, frame, globals, global_env, false)?;
             match frame {
                 Frame::Local(env) => unimplemented!(),
                 Frame::Top => {
@@ -152,10 +166,38 @@ fn _compile(
         },
         AST::Array { size, value } => todo!(),
         AST::Object { extends, members } => todo!(),
-        AST::AccessVariable { name } => todo!(),
+        AST::AccessVariable { name } => {
+            match frame {
+                Frame::Local(env) => unimplemented!(),
+                Frame::Top => {
+                    if !global_env.has_variable(&name.0) {
+                        Err("Variable doesn't exists.")
+                    } else {
+                        // Just create new string with the name
+                        let idx = pool.push(Constant::from(name.0.clone()));
+                        code.write_inst(Bytecode::GetGlobal { name: idx });
+                        Ok(())
+                    }
+                }
+            }
+        },
         AST::AccessField { object, field } => todo!(),
         AST::AccessArray { array, index } => todo!(),
-        AST::AssignVariable { name, value } => todo!(),
+        AST::AssignVariable { name, value } => {
+            _compile(ast, pool, code, frame, globals, global_env, false)?;
+            match frame {
+                Frame::Local(env) => unimplemented!(),
+                Frame::Top => {
+                    if !global_env.has_variable(&name.0) {
+                        Err("Variable doesn't exists.")
+                    } else {
+                        let idx = pool.push(Constant::from(name.0.clone()));
+                        code.write_inst(Bytecode::SetGlobal { name: idx });
+                        Ok(())
+                    }
+                }
+            }
+        },
         AST::AssignField {
             object,
             field,
@@ -235,8 +277,9 @@ fn _compile(
             Ok(())
         }
         AST::Block(asts) => {
-            for ast in asts.iter() {
-                _compile(ast, pool, code, frame, globals, global_env, true)?;
+            let mut it = asts.iter().peekable();
+            while let Some(ast) = it.next() {
+                _compile(ast, pool, code, frame, globals, global_env, it.peek().is_some())?;
             }
 
             Ok(())
