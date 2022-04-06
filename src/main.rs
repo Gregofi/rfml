@@ -3,6 +3,7 @@ pub mod constants;
 pub mod ast;
 pub mod compiler;
 pub mod serializer;
+pub mod debug;
 
 use ast::AST;
 use compiler::compile;

@@ -86,39 +86,9 @@ impl Serializable for Bytecode {
 
         Ok(())
     }
-
-    fn serializable_human (&self) {
-        match self {
-            Bytecode::Literal { index } => {
-                print!("lit {0}", index);
-            }
-            Bytecode::GetLocal { index } => todo!(),
-            Bytecode::SetLocal { index } => todo!(),
-            Bytecode::GetGlobal { name } => todo!(),
-            Bytecode::SetGlobal { name } => todo!(),
-            Bytecode::Object { class } => todo!(),
-            Bytecode::Array => todo!(),
-            Bytecode::GetField { name } => todo!(),
-            Bytecode::SetField { name } => todo!(),
-            Bytecode::CallMethod { name, arguments } => todo!(),
-            Bytecode::CallFunction { name, arguments } => todo!(),
-            Bytecode::Label { name } => todo!(),
-            Bytecode::Print { format, arguments } => {
-                print!("print str:{0} arg_cnt:{1}", format, arguments);
-            }
-            Bytecode::Jump { label } => todo!(),
-            Bytecode::Branch { label } => todo!(),
-            Bytecode::Return => {
-                print!("return");
-            },
-            Bytecode::Drop => {
-                print!("drop");
-            },
-        };
-    }
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct Code {
     pub insert_point: Vec<Bytecode>,
 }

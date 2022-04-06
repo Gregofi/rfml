@@ -7,7 +7,7 @@ fn from_usize(i: usize) -> ConstantPoolIndex {
     i.try_into().unwrap()
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum Constant {
     Integer(i32),
     Boolean(bool),
@@ -61,34 +61,9 @@ impl Serializable for Constant {
 
         Ok(())
     }
-
-    fn serializable_human(&self) {
-        match self {
-            Constant::Integer(val) => {
-                print!("Integer: {0}", val);
-            }
-            Constant::Boolean(val) => {
-                print!("Boolean: {0}", val);
-            },
-            Constant::Null => {
-                print!("Null");
-            },
-            Constant::String(str) => {
-                print!("String: \"{0}\"", str);
-            },
-            Constant::Slot { name } => todo!(),
-            Constant::Function { name, parameters, locals, code } => {
-                print!("Function: {{ name: {0}, parameters: {1}, locals: {2}, code:\n", name, parameters, locals);
-                for inst in code.insert_point.iter() {
-                    inst.serializable_human();
-                    println!("");
-                }
-                print!("}}");
-            },
-        };
-    }
 }
 
+#[derive(Debug)]
 pub struct ConstantPool(Vec<Constant>);
 impl ConstantPool {
     pub fn new() -> Self {
@@ -119,13 +94,5 @@ impl Serializable for ConstantPool {
         }
 
         Ok(())
-    }
-
-    fn serializable_human(&self) {
-        println!("Constant pool:");
-        for constant in self.0.iter() {
-            constant.serializable_human();
-            println!("");
-        }
     }
 }

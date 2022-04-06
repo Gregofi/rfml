@@ -80,7 +80,6 @@ pub fn compile(ast: &AST) -> Result<(), &'static str> {
 
     _compile(ast, &mut pool, &mut code_dummy, &mut frame)?;
 
-    pool.serializable_human();
     let mut f = File::create("foo.bc").expect("Unable to open output file.");
     pool.serializable_byte(&mut f)?;
 
@@ -90,6 +89,7 @@ pub fn compile(ast: &AST) -> Result<(), &'static str> {
     // Main function is always added last.
     f.write(&(pool.len() - 1).to_le_bytes());
 
+    println!("{:?}", pool);
 
     Ok(())
 }
