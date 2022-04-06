@@ -211,11 +211,11 @@ pub fn _compile(
         } => todo!(),
         AST::Print { format, arguments } => {
             let string = pool.push(Constant::from(format.clone()));
-            let print = Bytecode::Print{ format: string, arguments: arguments.len().try_into().unwrap() };
-            code.write_inst(print);
             for ast in arguments.iter() {
                 _compile(ast, pool, code, frame)?;
             }
+            let print = Bytecode::Print{ format: string, arguments: arguments.len().try_into().unwrap() };
+            code.write_inst(print);
             Ok(())
         },
     }
