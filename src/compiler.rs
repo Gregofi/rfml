@@ -44,9 +44,12 @@ pub enum Frame {
 }
 
 impl VecEnvironments {
+    /**
+     * Initializes environments with one env present.
+     */
     fn new() -> Self {
         VecEnvironments {
-            envs: Vec::new(),
+            envs: vec![HashMap::new(); 1],
             var_cnt: 0,
         }
     }
@@ -219,7 +222,6 @@ fn _compile(
             }
 
             let mut env = VecEnvironments::new();
-            env.enter_scope();
 
             // Add arguments
             for param in parameters.iter() {
