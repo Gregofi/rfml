@@ -270,6 +270,7 @@ fn _compile(
             let mut fun_code = Code::new();
 
             _compile(body, pool, &mut fun_code, &mut frame, globals, global_env, false)?;
+            fun_code.write_inst(Bytecode::Return);
 
             let locals_cnt = match frame {
                 Frame::Local(env) => env.var_cnt,
