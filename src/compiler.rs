@@ -132,7 +132,7 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     // f.write(&0u16.to_le_bytes());
     globals.serializable_byte(&mut f)?;
 
-    // Main function is always added last.
+    // Entry point: Main function is always added last.
     f.write(&(pool.len() - 1 as u16).to_le_bytes())?;
 
     println!("{:?}\n{:?}", pool, globals);
