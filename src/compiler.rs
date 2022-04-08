@@ -43,7 +43,7 @@ impl Serializable for Globals {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct VecEnvironments {
     envs: Vec<HashMap<String, LocalFrameIndex>>,
     var_cnt: u16,
@@ -123,7 +123,7 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     let mut global_env = VecEnvironments::new();
     let mut globals = Globals::new();
 
-    _compile(ast, &mut pool, &mut code_dummy, &mut frame, &mut globals,  &mut global_env, true);
+    _compile(ast, &mut pool, &mut code_dummy, &mut frame, &mut globals,  &mut global_env, true).expect("Compilation failed");
 
     let mut f = File::create("foo.bc").expect("Unable to open output file.");
     pool.serializable_byte(&mut f)?;
@@ -175,7 +175,9 @@ fn _compile(
             match frame {
                 Frame::Local(env) => unimplemented!(),
                 Frame::Top if !global_env.is_topmost() => {
-                    let index = global_env.introduce_variable(name.0.clone()).unwrap();
+                    println!("{:?}", global_env);
+                    let index = global_env.introduce_variable(name.0.clone())
+                        .unwrap_or_else(|_| panic!("Variable '{0}' already exists in global environment", name.0));
                     _compile(value, pool, code, frame, globals, global_env, false)?;
                     code.write_inst(Bytecode::SetLocal { index: index });
                 }
@@ -199,7 +201,7 @@ fn _compile(
                 Frame::Local(env) => unimplemented!(),
                 // This behaves same way as local variable
                 Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0).is_some() => {
-                    let idx = global_env.introduce_variable(name.0.clone()).unwrap();
+                    let idx = global_env.has_variable(&name.0).expect("Variable is not defined.");
                     code.write_inst(Bytecode::GetLocal { index: idx });
                     Ok(())
                 }
@@ -222,7 +224,7 @@ fn _compile(
             match frame {
                 Frame::Local(env) => unimplemented!(),
                 Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0).is_some() => {
-                    let idx = global_env.introduce_variable(name.0.clone()).unwrap();
+                    let idx = global_env.has_variable(&name.0).unwrap();
                     code.write_inst(Bytecode::SetLocal { index: idx });
                     Ok(())
                 }
@@ -325,6 +327,7 @@ fn _compile(
             }
 
             let mut it = asts.iter().peekable();
+            // Discard all values from stack except the last one
             while let Some(ast) = it.next() {
                 _compile(ast, pool, code, frame, globals, global_env, it.peek().is_some())?;
             }

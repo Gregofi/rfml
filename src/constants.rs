@@ -83,9 +83,18 @@ impl ConstantPool {
         ConstantPool(Vec::new())
     }
 
+    /**
+     * Checks if constant already exists, if doesn't, inserts new.
+     * Either way returns index to the constant.
+     */
     pub fn push(&mut self, constant: Constant) -> ConstantPoolIndex {
-        self.0.push(constant);
-        (self.0.len() - 1).try_into().unwrap()
+        match self.find(&constant) {
+            Some(idx) => idx,
+            None => {
+                self.0.push(constant);
+                (self.0.len() - 1).try_into().unwrap()
+            }
+        }
     }
 
     pub fn find(&mut self, constant: &Constant) -> Option<ConstantPoolIndex> {
