@@ -173,9 +173,12 @@ fn _compile(
         AST::Variable { name, value } => {
             _compile(value, pool, code, frame, globals, global_env, false)?;
             match frame {
-                Frame::Local(env) => unimplemented!(),
+                Frame::Local(env) => {
+                    let index = env.introduce_variable(name.0.clone())
+                        .unwrap_or_else(|_| panic!("Variable '{0}' already exists in global environment", name.0));
+                    code.write_inst(Bytecode::SetLocal { index: index });
+                },
                 Frame::Top if !global_env.is_topmost() => {
-                    println!("{:?}", global_env);
                     let index = global_env.introduce_variable(name.0.clone())
                         .unwrap_or_else(|_| panic!("Variable '{0}' already exists in global environment", name.0));
                     code.write_inst(Bytecode::SetLocal { index: index });
@@ -195,27 +198,33 @@ fn _compile(
         AST::Object { extends, members } => todo!(),
         AST::AccessVariable { name } => {
             match frame {
-                Frame::Local(env) => unimplemented!(),
-                // This behaves same way as local variable
+                Frame::Local(env) => {
+                    let idx = env.has_variable(&name.0).expect("Variable is not defined.");
+                    code.write_inst(Bytecode::GetLocal { index: idx });
+                },
+                // In global scope but local because used in block
                 Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0).is_some() => {
                     let idx = global_env.has_variable(&name.0).expect("Variable is not defined.");
                     code.write_inst(Bytecode::GetLocal { index: idx });
-                    Ok(())
                 }
+                // Global variable
                 Frame::Top => {
                     // TODO: Check if global exist
                     let idx = pool.push(Constant::from(name.0.clone()));
                     code.write_inst(Bytecode::GetGlobal { name: idx });
-                    Ok(())
                 }
-            }
+            };
+            Ok(())
         },
         AST::AccessField { object, field } => todo!(),
         AST::AccessArray { array, index } => todo!(),
         AST::AssignVariable { name, value } => {
             _compile(ast, pool, code, frame, globals, global_env, false)?;
             match frame {
-                Frame::Local(env) => unimplemented!(),
+                Frame::Local(env) => {
+                    let idx = env.has_variable(&name.0).unwrap();
+                    code.write_inst(Bytecode::SetLocal { index: idx });
+                },
                 Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0).is_some() => {
                     let idx = global_env.has_variable(&name.0).unwrap();
                     code.write_inst(Bytecode::SetLocal { index: idx });
