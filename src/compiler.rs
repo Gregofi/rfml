@@ -10,7 +10,7 @@ trait Environments {
     fn enter_scope(&mut self);
     fn leave_scope(&mut self) -> Result<(), &'static str>;
     fn introduce_variable(&mut self, str: String) -> Result<LocalFrameIndex, &'static str>;
-    fn has_variable(&self, str: &String) -> bool;
+    fn has_variable(&self, str: &String) -> Option<LocalFrameIndex>;
     fn is_topmost(&self) -> bool;
 }
 
@@ -85,31 +85,30 @@ impl Environments for VecEnvironments {
     }
 
     fn introduce_variable(&mut self, str: String) -> Result<LocalFrameIndex, &'static str> {
-        // Check if the variable doesn't already exist
-        for env in self.envs.iter().rev() {
-            let val = env.get(&str);
-            match val {
-                Some(idx) => return Ok(*idx),
-                _ => (),
-            }
+        // Check if the variable doesn't already exist in the most topmost scope
+        let env = self.envs.last_mut().expect("There is no scope.");
+        match env.get(&str) {
+            Some(_) => return Err("Variable already exists."),
+            _ => (),
         }
 
-        // If not, create new
-        let env = self.envs.last_mut().unwrap();
+        // Create new variable
         env.insert(str, self.var_cnt);
         self.var_cnt += 1;
         Ok(self.var_cnt - 1)
     }
 
-    fn has_variable(&self, str: &String) -> bool {
+    fn has_variable(&self, str: &String) -> Option<LocalFrameIndex> {
+        // Check if variable is located in any environment, start
+        // from the last.
         for env in self.envs.iter().rev() {
             let val = env.get(str);
             match val {
-                Some(idx) => return true,
+                Some(idx) => return Some(*idx),
                 _ => (),
             }
         };
-        false
+        None
     }
 
     fn is_topmost(&self) -> bool {
@@ -130,6 +129,7 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     pool.serializable_byte(&mut f)?;
 
     // Serialize globals
+    f.write(&globals.len().to_le_bytes())?;
     globals.serializable_byte(&mut f)?;
 
     // Main function is always added last.
@@ -198,13 +198,13 @@ fn _compile(
             match frame {
                 Frame::Local(env) => unimplemented!(),
                 // This behaves same way as local variable
-                Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0) => {
+                Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0).is_some() => {
                     let idx = global_env.introduce_variable(name.0.clone()).unwrap();
                     code.write_inst(Bytecode::GetLocal { index: idx });
                     Ok(())
                 }
                 Frame::Top => {
-                    if !global_env.has_variable(&name.0) {
+                    if global_env.has_variable(&name.0).is_none() {
                         Err("Variable doesn't exists.")
                     } else {
                         // Just create new string with the name
@@ -221,13 +221,13 @@ fn _compile(
             _compile(ast, pool, code, frame, globals, global_env, false)?;
             match frame {
                 Frame::Local(env) => unimplemented!(),
-                Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0) => {
+                Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0).is_some() => {
                     let idx = global_env.introduce_variable(name.0.clone()).unwrap();
                     code.write_inst(Bytecode::SetLocal { index: idx });
                     Ok(())
                 }
                 Frame::Top => {
-                    if !global_env.has_variable(&name.0) {
+                    if global_env.has_variable(&name.0).is_none() {
                         Err("Variable doesn't exists.")
                     } else {
                         let idx = pool.push(Constant::from(name.0.clone()));
@@ -306,7 +306,7 @@ fn _compile(
             let fun = Constant::Function {
                 name: func_name,
                 parameters: 0,
-                locals: 0,
+                locals: global_env.var_cnt,
                 code: code_main,
             };
 
