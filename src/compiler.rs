@@ -28,6 +28,10 @@ impl Globals {
         self.globals.push(index)
     }
 
+    pub fn contains(&self, index: ConstantPoolIndex) -> bool {
+        self.globals.contains(&index)
+    }
+
     pub fn len(&self) -> u16 {
         self.globals.len().try_into().unwrap()
     }
@@ -187,7 +191,6 @@ fn _compile(
                     let name_index = pool.push(Constant::from(String::from(name.as_str())));
                     let slot_index = pool.push(Constant::Slot { name: name_index });
                     globals.introduce_variable(slot_index);
-
                     code.write_inst(Bytecode::SetGlobal{ name: name_index});
                 }
             }
@@ -198,7 +201,7 @@ fn _compile(
         AST::Object { extends, members } => todo!(),
         AST::AccessVariable { name } => {
             match frame {
-                Frame::Local(env) => {
+                Frame::Local(env) if env.has_variable(&name.0).is_some() => {
                     let idx = env.has_variable(&name.0).unwrap_or_else(|| panic!("Variable '{}' is not defined.", &name.0));
                     code.write_inst(Bytecode::GetLocal { index: idx });
                 },
@@ -208,9 +211,13 @@ fn _compile(
                     code.write_inst(Bytecode::GetLocal { index: idx });
                 }
                 // Global variable
-                Frame::Top => {
-                    // TODO: Check if global exist
+                _ => {
                     let idx = pool.push(Constant::from(name.0.clone()));
+                    // TODO: Check if global exists. It can't be done this way,
+                    // because they are saved as slots.
+                    // if !globals.contains(idx) {
+                    //     panic!("Global variable '{}' doesn't exist.", &name.0);
+                    // }
                     code.write_inst(Bytecode::GetGlobal { name: idx });
                 }
             };
@@ -221,7 +228,7 @@ fn _compile(
         AST::AssignVariable { name, value } => {
             _compile(value, pool, code, frame, globals, global_env, false)?;
             match frame {
-                Frame::Local(env) => {
+                Frame::Local(env) if env.has_variable(&name.0).is_some() => {
                     let idx = env.has_variable(&name.0).unwrap();
                     code.write_inst(Bytecode::SetLocal { index: idx });
                 },
@@ -229,9 +236,13 @@ fn _compile(
                     let idx = global_env.has_variable(&name.0).unwrap();
                     code.write_inst(Bytecode::SetLocal { index: idx });
                 }
-                Frame::Top => {
-                    // TODO: Check if global exists
+                _ => {
                     let idx = pool.push(Constant::from(name.0.clone()));
+                    // TODO: Check if global exists. It can't be done this way,
+                    // because they are saved as slots.
+                    // if !globals.contains(idx) {
+                    //     panic!("Global variable '{}' doesn't exist.", &name.0);
+                    // }
                     code.write_inst(Bytecode::SetGlobal { name: idx });
                 }
             }
