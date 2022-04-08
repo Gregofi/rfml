@@ -65,10 +65,22 @@ impl Serializable for Bytecode {
                 output.write(&0x01u8.to_le_bytes())?;
                 output.write(&index.to_le_bytes())?;
             },
-            Bytecode::GetLocal { index } => todo!(),
-            Bytecode::SetLocal { index } => todo!(),
-            Bytecode::GetGlobal { name } => todo!(),
-            Bytecode::SetGlobal { name } => todo!(),
+            Bytecode::GetLocal { index } => {
+                output.write(&0x0Au8.to_le_bytes())?;
+                output.write(&index.to_le_bytes())?;
+            },
+            Bytecode::SetLocal { index } => {
+                output.write(&0x09u8.to_le_bytes())?;
+                output.write(&index.to_le_bytes())?;
+            },
+            Bytecode::GetGlobal { name } => {
+                output.write(&0x0Cu8.to_le_bytes())?;
+                output.write(&name.to_le_bytes())?;
+            },
+            Bytecode::SetGlobal { name } => {
+                output.write(&0x0Bu8.to_le_bytes())?;
+                output.write(&name.to_le_bytes())?;
+            },
             Bytecode::Object { class } => todo!(),
             Bytecode::Array => todo!(),
             Bytecode::GetField { name } => todo!(),
@@ -77,9 +89,9 @@ impl Serializable for Bytecode {
             Bytecode::CallFunction { name, arguments } => todo!(),
             Bytecode::Label { name } => todo!(),
             Bytecode::Print { format, arguments } => {
-                output.write(&[0x02 as u8]);
-                output.write(&format.to_le_bytes());
-                output.write(&arguments.to_le_bytes());
+                output.write(&[0x02 as u8])?;
+                output.write(&format.to_le_bytes())?;
+                output.write(&arguments.to_le_bytes())?;
             },
             Bytecode::Jump { label } => todo!(),
             Bytecode::Branch { label } => todo!(),

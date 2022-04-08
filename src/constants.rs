@@ -76,6 +76,8 @@ impl Serializable for Constant {
 
 #[derive(Debug)]
 pub struct ConstantPool(Vec<Constant>);
+
+
 impl ConstantPool {
     pub fn new() -> Self {
         ConstantPool(Vec::new())

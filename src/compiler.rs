@@ -3,7 +3,6 @@ use crate::bytecode::*;
 use crate::constants::*;
 use crate::serializer::Serializable;
 use std::collections::HashMap;
-use std::env;
 use std::fs::File;
 use std::io::Write;
 
@@ -12,8 +11,10 @@ trait Environments {
     fn leave_scope(&mut self) -> Result<(), &'static str>;
     fn introduce_variable(&mut self, str: String) -> Result<LocalFrameIndex, &'static str>;
     fn has_variable(&self, str: &String) -> bool;
+    fn is_topmost(&self) -> bool;
 }
 
+#[derive(Debug)]
 struct Globals {
     globals: Vec<ConstantPoolIndex>,
 }
@@ -25,6 +26,20 @@ impl Globals {
 
     pub fn introduce_variable(&mut self, index: ConstantPoolIndex) {
         self.globals.push(index)
+    }
+
+    pub fn len(&self) -> u16 {
+        self.globals.len().try_into().unwrap()
+    }
+}
+
+impl Serializable for Globals {
+    fn serializable_byte<W: Write> (&self, output: &mut W) -> std::io::Result<()> {
+        output.write(&self.globals.len().to_le_bytes())?;
+        for global in self.globals.iter() {
+            output.write(&global.to_le_bytes())?;
+        }
+        Ok(())
     }
 }
 
@@ -96,6 +111,10 @@ impl Environments for VecEnvironments {
         };
         false
     }
+
+    fn is_topmost(&self) -> bool {
+        self.envs.len() == 1
+    }
 }
 
 pub fn compile(ast: &AST) -> std::io::Result<()> {
@@ -110,13 +129,14 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     let mut f = File::create("foo.bc").expect("Unable to open output file.");
     pool.serializable_byte(&mut f)?;
 
-    // TODO: Globals
-    f.write(&[0 as u8, 0 as u8])?;
+    // Serialize globals
+    globals.serializable_byte(&mut f)?;
 
     // Main function is always added last.
     f.write(&(pool.len() - 1).to_le_bytes())?;
 
-    println!("{:?}", pool);
+    println!("{:?}\n{:?}", pool, globals);
+    println!("EP: {0}", pool.len() - 1);
 
     Ok(())
 }
@@ -154,6 +174,11 @@ fn _compile(
             _compile(value, pool, code, frame, globals, global_env, false)?;
             match frame {
                 Frame::Local(env) => unimplemented!(),
+                Frame::Top if !global_env.is_topmost() => {
+                    let index = global_env.introduce_variable(name.0.clone()).unwrap();
+                    _compile(value, pool, code, frame, globals, global_env, false)?;
+                    code.write_inst(Bytecode::SetLocal { index: index });
+                }
                 Frame::Top => {
                     global_env.introduce_variable(String::from(name.as_str()))?;
 
@@ -172,6 +197,12 @@ fn _compile(
         AST::AccessVariable { name } => {
             match frame {
                 Frame::Local(env) => unimplemented!(),
+                // This behaves same way as local variable
+                Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0) => {
+                    let idx = global_env.introduce_variable(name.0.clone()).unwrap();
+                    code.write_inst(Bytecode::GetLocal { index: idx });
+                    Ok(())
+                }
                 Frame::Top => {
                     if !global_env.has_variable(&name.0) {
                         Err("Variable doesn't exists.")
@@ -190,6 +221,11 @@ fn _compile(
             _compile(ast, pool, code, frame, globals, global_env, false)?;
             match frame {
                 Frame::Local(env) => unimplemented!(),
+                Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0) => {
+                    let idx = global_env.introduce_variable(name.0.clone()).unwrap();
+                    code.write_inst(Bytecode::SetLocal { index: idx });
+                    Ok(())
+                }
                 Frame::Top => {
                     if !global_env.has_variable(&name.0) {
                         Err("Variable doesn't exists.")
@@ -279,11 +315,28 @@ fn _compile(
             Ok(())
         }
         AST::Block(asts) => {
+            match frame {
+                Frame::Top => {
+                    global_env.enter_scope();
+                }
+                Frame::Local(env) => {
+                    env.enter_scope();
+                }
+            }
+
             let mut it = asts.iter().peekable();
             while let Some(ast) = it.next() {
                 _compile(ast, pool, code, frame, globals, global_env, it.peek().is_some())?;
             }
 
+            match frame {
+                Frame::Top => {
+                    global_env.leave_scope()?;
+                }
+                Frame::Local(env) => {
+                    env.leave_scope()?;
+                }
+            }
             Ok(())
         },
         AST::Loop { condition, body } => todo!(),
