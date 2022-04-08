@@ -91,14 +91,24 @@ impl Serializable for Bytecode {
                 output.write(&name.to_le_bytes())?;
                 output.write(&arguments.to_le_bytes())?;
             },
-            Bytecode::Label { name } => todo!(),
+            Bytecode::Label { name } => {
+                output.write(&0x00u8.to_le_bytes())?;
+                output.write(&name.to_le_bytes())?;
+            },
             Bytecode::Print { format, arguments } => {
                 output.write(&[0x02 as u8])?;
                 output.write(&format.to_le_bytes())?;
                 output.write(&arguments.to_le_bytes())?;
             },
-            Bytecode::Jump { label } => todo!(),
-            Bytecode::Branch { label } => todo!(),
+            Bytecode::Jump { label } => {
+                output.write(&0x0Eu8.to_le_bytes())?;
+                output.write(&label.to_le_bytes())?;
+            },
+            Bytecode::Branch { label } => {
+                output.write(&0x0Du8.to_le_bytes())?;
+                output.write(&label.to_le_bytes())?;
+
+            }
             Bytecode::Return => {
                 output.write(&0x0Fu8.to_le_bytes())?;
             },

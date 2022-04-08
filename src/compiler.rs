@@ -6,6 +6,27 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 
+
+struct RandomNameGenerator {
+    cnt: usize,
+}
+
+impl RandomNameGenerator {
+    fn new() -> Self {
+        RandomNameGenerator { cnt: 0 }
+    }
+
+    fn generate(&mut self, str: &'static str) -> String {
+        if str.chars().any(char::is_numeric) {
+            panic!("String can't contain number!");
+        }
+        let mut new_str = String::from(str);
+        new_str.push_str(&format!("_{}", self.cnt));
+        self.cnt += 1;
+        new_str
+    }
+}
+
 trait Environments {
     fn enter_scope(&mut self);
     fn leave_scope(&mut self) -> Result<(), &'static str>;
@@ -126,8 +147,9 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     let mut frame = Frame::Top;
     let mut global_env = VecEnvironments::new();
     let mut globals = Globals::new();
+    let mut generator = RandomNameGenerator::new();
 
-    _compile(ast, &mut pool, &mut code_dummy, &mut frame, &mut globals,  &mut global_env, true).expect("Compilation failed");
+    _compile(ast, &mut pool, &mut code_dummy, &mut frame, &mut globals,  &mut global_env, &mut generator, true).expect("Compilation failed");
 
     let mut f = File::create("foo.bc").expect("Unable to open output file.");
     pool.serializable_byte(&mut f)?;
@@ -152,6 +174,7 @@ fn _compile(
     frame: &mut Frame,
     globals: &mut Globals,
     global_env: &mut VecEnvironments,
+    generator: &mut RandomNameGenerator,
     drop: bool
 ) -> Result<(), &'static str> {
     match ast {
@@ -175,7 +198,7 @@ fn _compile(
             Ok(())
         }
         AST::Variable { name, value } => {
-            _compile(value, pool, code, frame, globals, global_env, false)?;
+            _compile(value, pool, code, frame, globals, global_env, generator, false)?;
             match frame {
                 Frame::Local(env) => {
                     let index = env.introduce_variable(name.0.clone())
@@ -226,7 +249,7 @@ fn _compile(
         AST::AccessField { object, field } => todo!(),
         AST::AccessArray { array, index } => todo!(),
         AST::AssignVariable { name, value } => {
-            _compile(value, pool, code, frame, globals, global_env, false)?;
+            _compile(value, pool, code, frame, globals, global_env, generator, false)?;
             match frame {
                 Frame::Local(env) if env.has_variable(&name.0).is_some() => {
                     let idx = env.has_variable(&name.0).unwrap();
@@ -280,7 +303,7 @@ fn _compile(
             let mut frame = Frame::Local(env);
             let mut fun_code = Code::new();
 
-            _compile(body, pool, &mut fun_code, &mut frame, globals, global_env, false)?;
+            _compile(body, pool, &mut fun_code, &mut frame, globals, global_env, generator, false)?;
             fun_code.write_inst(Bytecode::Return);
 
             let locals_cnt = match frame {
@@ -303,7 +326,7 @@ fn _compile(
         AST::CallFunction { name, arguments } => {
             let fun_idx = pool.find_by_str(&name.0).expect("Called function does not exist.");
             for ast in arguments {
-                _compile(ast, pool, code, frame, globals, global_env, false)?;
+                _compile(ast, pool, code, frame, globals, global_env, generator, false)?;
             }
             code.write_inst(Bytecode::CallFunction { name: fun_idx, arguments: arguments.len().try_into().unwrap() });
             Ok(())
@@ -321,7 +344,7 @@ fn _compile(
             for ast in asts.iter() {
                 // We send here code_main even if new function is encountered,
                 // but that function will define it's own code vector anyway.
-                _compile(ast, pool, &mut code_main, &mut Frame::Top, globals, global_env, true)?;
+                _compile(ast, pool, &mut code_main, &mut Frame::Top, globals, global_env, generator, true)?;
             }
 
             println!("{:?}", global_env);
@@ -350,7 +373,7 @@ fn _compile(
             let mut it = asts.iter().peekable();
             // Discard all values from stack except the last one
             while let Some(ast) = it.next() {
-                _compile(ast, pool, code, frame, globals, global_env, it.peek().is_some() && !drop)?;
+                _compile(ast, pool, code, frame, globals, global_env, generator, it.peek().is_some() && !drop)?;
             }
 
             match frame {
@@ -363,16 +386,57 @@ fn _compile(
             }
             Ok(())
         },
-        AST::Loop { condition, body } => todo!(),
+        AST::Loop { condition, body } => {
+            let label_begin = pool.push(Constant::from(generator.generate("while_begin")));
+            let label_cond = pool.push(Constant::from(generator.generate("while_cond")));
+
+            // Since there is no instruction for negation, we need to evaluate the condition at the end
+            // if it's false, we just fall through.
+            code.write_inst(Bytecode::Jump{ label: label_cond });
+
+            // Body
+            code.write_inst(Bytecode::Label{ name: label_begin });
+            _compile(body, pool, code, frame, globals, global_env, generator, drop)?;
+
+            // Condition
+            code.write_inst(Bytecode::Label{ name: label_cond });
+            _compile(condition, pool, code, frame, globals, global_env, generator, false)?;
+            code.write_inst(Bytecode::Branch{ label: label_begin });
+
+            Ok(())
+        },
         AST::Conditional {
             condition,
             consequent,
             alternative,
-        } => todo!(),
+        } => {
+            let label_then = pool.push(Constant::from(generator.generate("if_then")));
+            let label_else = pool.push(Constant::from(generator.generate("if_else")));
+            let label_merge = pool.push(Constant::from(generator.generate("if_merge")));
+
+
+            _compile(condition, pool, code, frame, globals, global_env, generator, false)?;
+            code.write_inst(Bytecode::Branch { label: label_then });
+            code.write_inst(Bytecode::Jump { label: label_else });
+
+            // Then body
+            code.write_inst(Bytecode::Label { name: label_then });
+            _compile(consequent, pool, code, frame, globals, global_env, generator, false)?;
+            code.write_inst(Bytecode::Jump { label: label_merge });
+
+            // Else body
+            code.write_inst(Bytecode::Label { name: label_else });
+            _compile(alternative, pool, code, frame, globals, global_env, generator, false)?;
+
+            // Merge label
+            code.write_inst(Bytecode::Label{ name: label_merge });
+
+            Ok(())
+        },
         AST::Print { format, arguments } => {
             let string = pool.push(Constant::from(format.clone()));
             for ast in arguments.iter() {
-                _compile(ast, pool, code, frame, globals, global_env, false)?;
+                _compile(ast, pool, code, frame, globals, global_env, generator, false)?;
             }
             let print = Bytecode::Print{ format: string, arguments: arguments.len().try_into().unwrap() };
             code.write_inst(print);
