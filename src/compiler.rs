@@ -278,7 +278,14 @@ fn _compile(
 
             Ok(())
         }
-        AST::CallFunction { name, arguments } => todo!(),
+        AST::CallFunction { name, arguments } => {
+            let fun_idx = pool.find_by_str(&name.0).expect("Called function does not exist.");
+            for ast in arguments {
+                _compile(ast, pool, code, frame, globals, global_env, false)?;
+            }
+            code.write_inst(Bytecode::CallFunction { name: fun_idx, arguments: arguments.len().try_into().unwrap() });
+            Ok(())
+        },
         AST::CallMethod {
             object,
             name,

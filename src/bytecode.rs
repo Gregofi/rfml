@@ -4,7 +4,7 @@ use crate::constants::ConstantPool;
 use crate::serializer::Serializable;
 
 pub type LocalFrameIndex = u16;
-pub type ArgsCount = i8;
+pub type ArgsCount = u8;
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub enum Bytecode {
@@ -86,7 +86,11 @@ impl Serializable for Bytecode {
             Bytecode::GetField { name } => todo!(),
             Bytecode::SetField { name } => todo!(),
             Bytecode::CallMethod { name, arguments } => todo!(),
-            Bytecode::CallFunction { name, arguments } => todo!(),
+            Bytecode::CallFunction { name, arguments } => {
+                output.write(&0x08u8.to_le_bytes())?;
+                output.write(&name.to_le_bytes())?;
+                output.write(&arguments.to_le_bytes())?;
+            },
             Bytecode::Label { name } => todo!(),
             Bytecode::Print { format, arguments } => {
                 output.write(&[0x02 as u8])?;

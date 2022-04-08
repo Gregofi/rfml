@@ -97,8 +97,15 @@ impl ConstantPool {
         }
     }
 
-    pub fn find(&mut self, constant: &Constant) -> Option<ConstantPoolIndex> {
+    pub fn find(&self, constant: &Constant) -> Option<ConstantPoolIndex> {
         self.0.iter().position(|x| constant == x).map(|x| from_usize(x))
+    }
+
+    pub fn find_by_str(&self, str: &String) -> Option<ConstantPoolIndex> {
+        self.0.iter().position(|x| match x {
+            Constant::String(val) => val == str,
+            _ => false,
+        }).map(|x| from_usize(x))
     }
 
     pub fn len(&self) -> u16 {
