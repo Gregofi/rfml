@@ -123,8 +123,8 @@ impl Code {
         self.insert_point.push(inst)
     }
 
-    pub fn write_inst_unless(&mut self, inst: Bytecode, unless: bool) {
-        if unless {
+    pub fn write_inst_if(&mut self, inst: Bytecode, cond: bool) {
+        if cond {
             self.insert_point.push(inst)
         }
     }

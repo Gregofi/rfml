@@ -155,19 +155,19 @@ fn _compile(
             // Add it to constant pool.
             let index = pool.push(Constant::from(*val));
             code.write_inst(Bytecode::Literal { index });
-            code.write_inst_unless(Bytecode::Drop, drop);
+            code.write_inst_if(Bytecode::Drop, drop);
             Ok(())
         }
         AST::Boolean(val) => {
             let index = pool.push(Constant::from(*val));
             code.write_inst(Bytecode::Literal { index });
-            code.write_inst_unless(Bytecode::Drop, drop);
+            code.write_inst_if(Bytecode::Drop, drop);
             Ok(())
         }
         AST::Null => {
             let index = pool.push(Constant::Null);
             code.write_inst(Bytecode::Literal { index });
-            code.write_inst_unless(Bytecode::Drop, drop);
+            code.write_inst_if(Bytecode::Drop, drop);
             Ok(())
         }
         AST::Variable { name, value } => {
@@ -219,15 +219,16 @@ fn _compile(
                 Frame::Top if !global_env.is_topmost() && global_env.has_variable(&name.0).is_some() => {
                     let idx = global_env.has_variable(&name.0).unwrap();
                     code.write_inst(Bytecode::SetLocal { index: idx });
-                    Ok(())
                 }
                 Frame::Top => {
                     // TODO: Check if global exists
                     let idx = pool.push(Constant::from(name.0.clone()));
                     code.write_inst(Bytecode::SetGlobal { name: idx });
-                    Ok(())
                 }
             }
+            // AssignVariable only peeks, thats why it might be necessary to drop the value
+            code.write_inst_if(Bytecode::Drop, drop);
+            Ok(())
         },
         AST::AssignField {
             object,
@@ -293,6 +294,7 @@ fn _compile(
                 // but that function will define it's own code vector anyway.
                 _compile(ast, pool, &mut code_main, &mut Frame::Top, globals, global_env, true)?;
             }
+
             println!("{:?}", global_env);
             let func_name = pool.push(Constant::from(String::from("λ:")));
             let fun = Constant::Function {
@@ -319,7 +321,7 @@ fn _compile(
             let mut it = asts.iter().peekable();
             // Discard all values from stack except the last one
             while let Some(ast) = it.next() {
-                _compile(ast, pool, code, frame, globals, global_env, it.peek().is_some())?;
+                _compile(ast, pool, code, frame, globals, global_env, it.peek().is_some() && !drop)?;
             }
 
             match frame {
