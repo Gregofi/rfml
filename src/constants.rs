@@ -14,7 +14,8 @@ pub enum Constant {
     Null,
     String(String),
     Slot{name: ConstantPoolIndex},
-    Function{name: ConstantPoolIndex, parameters: u8, locals: u16, code: Code}
+    Function{name: ConstantPoolIndex, parameters: u8, locals: u16, code: Code},
+    Object{members: Vec<ConstantPoolIndex>},
 }
 
 impl From<i32> for Constant {
@@ -68,6 +69,13 @@ impl Serializable for Constant {
                     bytecode.serializable_byte(output)?;
                 }
             },
+            Constant::Object { members } => {
+                output.write(&0x05u8.to_le_bytes())?;
+                output.write( &(members.len() as u16).to_le_bytes())?;
+                for member in members.iter() {
+                    output.write(&member.to_le_bytes())?;
+                }
+            }
         }
 
         Ok(())

@@ -221,7 +221,32 @@ fn _compile(
             Ok(())
         },
         AST::Array { size, value } => todo!(),
-        AST::Object { extends, members } => todo!(),
+        AST::Object { extends, members } => {
+            _compile(extends, pool, code, frame, globals, global_env, generator, false)?;
+
+            // Compile the members and save the members as constant pool indexes
+            // TODO: Probably return vec of results and then filter it
+            let indexes: Vec<ConstantPoolIndex> = members.iter().map(|ast| {
+                // Love me some stars
+                match &**ast {
+                    AST::Function { name, parameters, body } => {
+                        unimplemented!()
+                    },
+                    AST::Variable { name, value } => {
+                        _compile(&value, pool, code, frame, globals, global_env, generator, false).expect("Compilation failed");
+                        let str_idx = pool.push(Constant::from(name.0.clone()));
+                        let idx = pool.push(Constant::Slot { name: str_idx });
+                        idx
+                    },
+                    _ => panic!("Object definition can only have method or variable."),
+                }
+            }).collect();
+
+            let obj = pool.push(Constant::Object{members: indexes});
+            code.write_inst(Bytecode::Object { class: obj });
+
+            Ok(())
+        },
         AST::AccessVariable { name } => {
             match frame {
                 Frame::Local(env) if env.has_variable(&name.0).is_some() => {
@@ -246,7 +271,14 @@ fn _compile(
             };
             Ok(())
         },
-        AST::AccessField { object, field } => todo!(),
+        AST::AccessField { object, field } => {
+            let field_idx = pool.find_by_str(&field.0).expect("Given field does not exist");
+            // let slot_idx = pool.find(&Constant::Slot { name: field_idx }).expect("Slot doesn't exist");
+            _compile(object, pool, code, frame, globals, global_env, generator, drop)?;
+            code.write_inst(Bytecode::GetField { name: field_idx });
+
+            Ok(())
+        },
         AST::AccessArray { array, index } => todo!(),
         AST::AssignVariable { name, value } => {
             _compile(value, pool, code, frame, globals, global_env, generator, false)?;
@@ -277,7 +309,14 @@ fn _compile(
             object,
             field,
             value,
-        } => todo!(),
+        } => {
+            let field_idx = pool.find_by_str(&field.0).expect("Given field does not exist");
+            // let slot_idx = pool.find(&Constant::Slot { name: field_idx }).expect("Slot doesn't exist");
+            _compile(object, pool, code, frame, globals, global_env, generator, false)?;
+            _compile(value, pool, code, frame, globals, global_env, generator, false)?;
+            code.write_inst(Bytecode::SetField { name: field_idx });
+            Ok(())
+        },
         AST::AssignArray {
             array,
             index,
