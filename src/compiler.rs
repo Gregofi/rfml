@@ -269,7 +269,7 @@ fn _compile(
             let mut frame = Frame::Local(env);
             let mut fun_code = Code::new();
 
-            _compile(body, pool, &mut fun_code, &mut frame, globals, global_env, true)?;
+            _compile(body, pool, &mut fun_code, &mut frame, globals, global_env, false)?;
 
             let locals_cnt = match frame {
                 Frame::Local(env) => env.var_cnt,
