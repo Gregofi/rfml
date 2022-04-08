@@ -219,7 +219,7 @@ fn _compile(
         AST::AccessField { object, field } => todo!(),
         AST::AccessArray { array, index } => todo!(),
         AST::AssignVariable { name, value } => {
-            _compile(ast, pool, code, frame, globals, global_env, false)?;
+            _compile(value, pool, code, frame, globals, global_env, false)?;
             match frame {
                 Frame::Local(env) => {
                     let idx = env.has_variable(&name.0).unwrap();
