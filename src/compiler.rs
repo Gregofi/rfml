@@ -35,7 +35,7 @@ impl Globals {
 
 impl Serializable for Globals {
     fn serializable_byte<W: Write> (&self, output: &mut W) -> std::io::Result<()> {
-        output.write(&self.globals.len().to_le_bytes())?;
+        output.write(&self.len().to_le_bytes())?;
         for global in self.globals.iter() {
             output.write(&global.to_le_bytes())?;
         }
@@ -129,7 +129,6 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     pool.serializable_byte(&mut f)?;
 
     // Serialize globals
-    f.write(&globals.len().to_le_bytes())?;
     globals.serializable_byte(&mut f)?;
 
     // Main function is always added last.
