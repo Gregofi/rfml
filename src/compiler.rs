@@ -274,7 +274,8 @@ fn _compile(
                 code: fun_code
             };
 
-            pool.push(func);
+            let fun_idx = pool.push(func);
+            globals.introduce_variable(fun_idx);
 
             Ok(())
         }
