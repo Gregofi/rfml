@@ -133,7 +133,7 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     globals.serializable_byte(&mut f)?;
 
     // Main function is always added last.
-    f.write(&(pool.len() - 1).to_le_bytes())?;
+    f.write(&(pool.len() - 1 as u16).to_le_bytes())?;
 
     println!("{:?}\n{:?}", pool, globals);
     println!("EP: {0}", pool.len() - 1);
@@ -178,12 +178,9 @@ fn _compile(
                     println!("{:?}", global_env);
                     let index = global_env.introduce_variable(name.0.clone())
                         .unwrap_or_else(|_| panic!("Variable '{0}' already exists in global environment", name.0));
-                    _compile(value, pool, code, frame, globals, global_env, false)?;
                     code.write_inst(Bytecode::SetLocal { index: index });
                 }
                 Frame::Top => {
-                    global_env.introduce_variable(String::from(name.as_str()))?;
-
                     let name_index = pool.push(Constant::from(String::from(name.as_str())));
                     let slot_index = pool.push(Constant::Slot { name: name_index });
                     globals.introduce_variable(slot_index);
@@ -206,14 +203,10 @@ fn _compile(
                     Ok(())
                 }
                 Frame::Top => {
-                    if global_env.has_variable(&name.0).is_none() {
-                        Err("Variable doesn't exists.")
-                    } else {
-                        // Just create new string with the name
-                        let idx = pool.push(Constant::from(name.0.clone()));
-                        code.write_inst(Bytecode::GetGlobal { name: idx });
-                        Ok(())
-                    }
+                    // TODO: Check if global exist
+                    let idx = pool.push(Constant::from(name.0.clone()));
+                    code.write_inst(Bytecode::GetGlobal { name: idx });
+                    Ok(())
                 }
             }
         },
@@ -229,13 +222,10 @@ fn _compile(
                     Ok(())
                 }
                 Frame::Top => {
-                    if global_env.has_variable(&name.0).is_none() {
-                        Err("Variable doesn't exists.")
-                    } else {
-                        let idx = pool.push(Constant::from(name.0.clone()));
-                        code.write_inst(Bytecode::SetGlobal { name: idx });
-                        Ok(())
-                    }
+                    // TODO: Check if global exists
+                    let idx = pool.push(Constant::from(name.0.clone()));
+                    code.write_inst(Bytecode::SetGlobal { name: idx });
+                    Ok(())
                 }
             }
         },
@@ -303,7 +293,7 @@ fn _compile(
                 // but that function will define it's own code vector anyway.
                 _compile(ast, pool, &mut code_main, &mut Frame::Top, globals, global_env, true)?;
             }
-
+            println!("{:?}", global_env);
             let func_name = pool.push(Constant::from(String::from("λ:")));
             let fun = Constant::Function {
                 name: func_name,
