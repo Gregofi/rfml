@@ -129,6 +129,7 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     pool.serializable_byte(&mut f)?;
 
     // Serialize globals
+    // f.write(&0u16.to_le_bytes());
     globals.serializable_byte(&mut f)?;
 
     // Main function is always added last.
