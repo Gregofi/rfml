@@ -199,7 +199,7 @@ fn _compile(
         AST::AccessVariable { name } => {
             match frame {
                 Frame::Local(env) => {
-                    let idx = env.has_variable(&name.0).expect("Variable is not defined.");
+                    let idx = env.has_variable(&name.0).unwrap_or_else(|| panic!("Variable '{}' is not defined.", &name.0));
                     code.write_inst(Bytecode::GetLocal { index: idx });
                 },
                 // In global scope but local because used in block
