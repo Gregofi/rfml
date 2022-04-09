@@ -1,4 +1,3 @@
-use crate::constants::ConstantPool;
 use crate::constants::ConstantPoolIndex;
 use crate::serializer::Serializable;
 use std::io::Write;

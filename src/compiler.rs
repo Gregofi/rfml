@@ -1,11 +1,10 @@
 use crate::ast::Identifier;
+use crate::ast::IntoBoxed;
 use crate::ast::AST;
 use crate::bytecode::*;
 use crate::constants::*;
 use crate::serializer::Serializable;
 use std::collections::HashMap;
-use std::env;
-use std::fs::File;
 use std::io;
 use std::io::Write;
 
@@ -51,10 +50,6 @@ impl Globals {
 
     pub fn introduce_variable(&mut self, index: ConstantPoolIndex) {
         self.globals.push(index)
-    }
-
-    pub fn contains(&self, index: ConstantPoolIndex) -> bool {
-        self.globals.contains(&index)
     }
 
     pub fn len(&self) -> u16 {
@@ -106,7 +101,7 @@ impl Environments for VecEnvironments {
 
     fn leave_scope(&mut self) -> Result<(), &'static str> {
         match self.envs.pop() {
-            Some(env) => Ok(()),
+            Some(_) => Ok(()),
             None => Err("No env to pop."),
         }
     }
@@ -290,11 +285,116 @@ fn _compile(
             Ok(())
         }
         AST::Array { size, value } => {
-            _compile(size, pool, code, frame, globals, global_env, generator, false)?;
-            _compile(value, pool, code, frame, globals, global_env, generator, false)?;
-            code.write_inst(Bytecode::Array);
-            Ok(())
-        },
+            match **value {
+                AST::Integer(_) | AST::Null | AST::AccessField {..} | AST::AccessArray {..} | AST::AccessVariable {..} => {
+                    _compile(size, pool, code, frame, globals, global_env, generator, false)?;
+                    _compile(value, pool, code, frame, globals, global_env, generator, false)?;
+                    code.write_inst(Bytecode::Array);
+                    Ok(())
+                }
+                _ => {
+                    // Create a while loop that iterates over the array and evaluates the value every time
+                    // var i = 0;
+                    // var size = 0;
+                    // var array = array(size, null);
+                    // while ( i < size ) {
+                    //    arr[i] = value;
+                    //    i <- i + 1;
+                    // }
+
+                    // var i = 0;
+                    let iter_var_name = generator.generate("i");
+                    let iter_var = AST::Variable {
+                        name: Identifier(iter_var_name.clone()),
+                        value: AST::Integer(0).into_boxed(),
+                    };
+                    _compile(
+                        &iter_var, pool, code, frame, globals, global_env, generator, true,
+                    )?;
+
+                    // var size = 0;
+                    let size_var_name = generator.generate("size");
+                    let size_var = AST::Variable {
+                        name: Identifier(size_var_name.clone()),
+                        value: size.clone(),
+                    };
+                    _compile(
+                        &size_var, pool, code, frame, globals, global_env, generator, true,
+                    )?;
+
+                    // var array = array(size, null)
+                    let array_var_name = generator.generate("array");
+                    let array_var = AST::Variable {
+                        name: Identifier(array_var_name.clone()),
+                        value: AST::Array {
+                            size: AST::AccessVariable {
+                                name: Identifier(size_var_name.clone()),
+                            }
+                            .into_boxed(),
+                            value: AST::Null.into_boxed(),
+                        }
+                        .into_boxed(),
+                    };
+                    _compile(
+                        &array_var, pool, code, frame, globals, global_env, generator, true,
+                    )?;
+
+                    // arr[i] = value
+                    let assign = AST::AssignArray {
+                        array: AST::AccessVariable {
+                            name: Identifier(array_var_name.clone()),
+                        }
+                        .into_boxed(),
+                        index: AST::AccessVariable {
+                            name: Identifier(iter_var_name.clone()),
+                        }
+                        .into_boxed(),
+                        value: value.clone(),
+                    }
+                    .into_boxed();
+
+                    // i <- i + 1
+                    let iter_add = AST::CallMethod {
+                        object: AST::AccessVariable {
+                            name: Identifier(iter_var_name.clone()),
+                        }
+                        .into_boxed(),
+                        name: Identifier("+".to_string()),
+                        arguments: vec![AST::Integer(1).into_boxed()],
+                    }
+                    .into_boxed();
+                    let iter_update = AST::AssignVariable { name: Identifier(iter_var_name.clone()), value: iter_add }.into_boxed();
+
+                    // while (i < size)
+                    //  arr[i] = value;
+                    //  i <- i + 1
+                    let init_loop = AST::Loop {
+                        condition: AST::CallMethod {
+                            object: AST::AccessVariable {
+                                name: Identifier(iter_var_name.clone()),
+                            }
+                            .into_boxed(),
+                            name: Identifier("<".to_string()),
+                            arguments: vec![AST::AccessVariable {
+                                name: Identifier(size_var_name.clone()),
+                            }
+                            .into_boxed()],
+                        }
+                        .into_boxed(),
+                        body: AST::Block(vec![assign, iter_update]).into_boxed(),
+                    }.into_boxed();
+
+                    _compile(&init_loop, pool, code, frame, globals, global_env, generator, true)?;
+
+                    let array_access = AST::AccessVariable { name: Identifier(array_var_name.clone()) };
+
+                    _compile(&array_access, pool, code, frame, globals, global_env, generator, drop)?;
+
+                    Ok(())
+
+                }
+            }
+        }
         AST::Object { extends, members } => {
             _compile(
                 extends, pool, code, frame, globals, global_env, generator, false,
@@ -374,7 +474,7 @@ fn _compile(
         AST::AccessField { object, field } => {
             let field_idx = pool
                 .find_by_str(&field.0)
-                .expect("Given field does not exist");
+                .unwrap_or_else(|| panic!("Field '{}' does not exist", field.0));
             // let slot_idx = pool.find(&Constant::Slot { name: field_idx }).expect("Slot doesn't exist");
             _compile(
                 object, pool, code, frame, globals, global_env, generator, drop,
@@ -384,11 +484,18 @@ fn _compile(
             Ok(())
         }
         AST::AccessArray { array, index } => {
-            _compile(array, pool, code, frame, globals, global_env, generator, false)?;
-            _compile(index, pool, code, frame, globals, global_env, generator, false)?;
+            _compile(
+                array, pool, code, frame, globals, global_env, generator, false,
+            )?;
+            _compile(
+                index, pool, code, frame, globals, global_env, generator, false,
+            )?;
 
             let access_idx = pool.push(Constant::from(String::from("get")));
-            code.write_inst(Bytecode::CallMethod { name: access_idx, arguments: 2 });
+            code.write_inst(Bytecode::CallMethod {
+                name: access_idx,
+                arguments: 2,
+            });
             Ok(())
         }
         AST::AssignVariable { name, value } => {
@@ -443,14 +550,23 @@ fn _compile(
             index,
             value,
         } => {
-            _compile(array, pool, code, frame, globals, global_env, generator, false)?;
-            _compile(index, pool, code, frame, globals, global_env, generator, false)?;
-            _compile(value, pool, code, frame, globals, global_env, generator, false)?;
+            _compile(
+                array, pool, code, frame, globals, global_env, generator, false,
+            )?;
+            _compile(
+                index, pool, code, frame, globals, global_env, generator, false,
+            )?;
+            _compile(
+                value, pool, code, frame, globals, global_env, generator, false,
+            )?;
 
             let access_idx = pool.push(Constant::from(String::from("set")));
-            code.write_inst(Bytecode::CallMethod { name: access_idx, arguments: 3 });
+            code.write_inst(Bytecode::CallMethod {
+                name: access_idx,
+                arguments: 3,
+            });
             Ok(())
-        },
+        }
         AST::Function {
             name,
             parameters,
@@ -524,14 +640,21 @@ fn _compile(
             // let method_idx = pool.find_by_str(&name.0).expect("Called method does not exist.");
             let method_idx = pool.push(Constant::from(name.0.clone()));
             // Push object first and then the arguments.
-            _compile(object, pool, code, frame, globals, global_env, generator, false)?;
+            _compile(
+                object, pool, code, frame, globals, global_env, generator, false,
+            )?;
             for ast in arguments {
-                _compile(ast, pool, code, frame, globals, global_env, generator, false)?;
+                _compile(
+                    ast, pool, code, frame, globals, global_env, generator, false,
+                )?;
             }
-            code.write_inst(Bytecode::CallMethod { name: method_idx, arguments: (arguments.len() + 1).try_into().unwrap() });
+            code.write_inst(Bytecode::CallMethod {
+                name: method_idx,
+                arguments: (arguments.len() + 1).try_into().unwrap(),
+            });
 
             Ok(())
-        },
+        }
         // Here, global statements or functions definitions are
         AST::Top(asts) => {
             // Create the 'main' function
