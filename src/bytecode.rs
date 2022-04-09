@@ -1,7 +1,7 @@
-use std::io::Write;
-use crate::constants::ConstantPoolIndex;
 use crate::constants::ConstantPool;
+use crate::constants::ConstantPoolIndex;
 use crate::serializer::Serializable;
+use std::io::Write;
 
 pub type LocalFrameIndex = u16;
 pub type ArgsCount = u8;
@@ -59,68 +59,67 @@ pub enum Bytecode {
 }
 
 impl Serializable for Bytecode {
-    fn serializable_byte<W: Write> (&self, output: &mut W) -> std::io::Result<()> {
+    fn serializable_byte<W: Write>(&self, output: &mut W) -> std::io::Result<()> {
         match self {
             Bytecode::Literal { index } => {
                 output.write(&0x01u8.to_le_bytes())?;
                 output.write(&index.to_le_bytes())?;
-            },
+            }
             Bytecode::GetLocal { index } => {
                 output.write(&0x0Au8.to_le_bytes())?;
                 output.write(&index.to_le_bytes())?;
-            },
+            }
             Bytecode::SetLocal { index } => {
                 output.write(&0x09u8.to_le_bytes())?;
                 output.write(&index.to_le_bytes())?;
-            },
+            }
             Bytecode::GetGlobal { name } => {
                 output.write(&0x0Cu8.to_le_bytes())?;
                 output.write(&name.to_le_bytes())?;
-            },
+            }
             Bytecode::SetGlobal { name } => {
                 output.write(&0x0Bu8.to_le_bytes())?;
                 output.write(&name.to_le_bytes())?;
-            },
+            }
             Bytecode::Object { class } => {
                 output.write(&0x04u8.to_le_bytes())?;
                 output.write(&class.to_le_bytes())?;
-            },
+            }
             Bytecode::Array => todo!(),
             Bytecode::GetField { name } => {
                 output.write(&0x05u8.to_le_bytes())?;
                 output.write(&name.to_le_bytes())?;
-            },
+            }
             Bytecode::SetField { name } => {
                 output.write(&0x06u8.to_le_bytes())?;
                 output.write(&name.to_le_bytes())?;
-            },
+            }
             Bytecode::CallMethod { name, arguments } => todo!(),
             Bytecode::CallFunction { name, arguments } => {
                 output.write(&0x08u8.to_le_bytes())?;
                 output.write(&name.to_le_bytes())?;
                 output.write(&arguments.to_le_bytes())?;
-            },
+            }
             Bytecode::Label { name } => {
                 output.write(&0x00u8.to_le_bytes())?;
                 output.write(&name.to_le_bytes())?;
-            },
+            }
             Bytecode::Print { format, arguments } => {
                 output.write(&[0x02 as u8])?;
                 output.write(&format.to_le_bytes())?;
                 output.write(&arguments.to_le_bytes())?;
-            },
+            }
             Bytecode::Jump { label } => {
                 output.write(&0x0Eu8.to_le_bytes())?;
                 output.write(&label.to_le_bytes())?;
-            },
+            }
             Bytecode::Branch { label } => {
                 output.write(&0x0Du8.to_le_bytes())?;
                 output.write(&label.to_le_bytes())?;
-
             }
             Bytecode::Return => {
                 output.write(&0x0Fu8.to_le_bytes())?;
-            },
+            }
             Bytecode::Drop => {
                 output.write(&0x10u8.to_le_bytes())?;
             }
@@ -160,4 +159,3 @@ impl Code {
         self.insert_point.len().try_into().unwrap()
     }
 }
-

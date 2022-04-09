@@ -1,9 +1,9 @@
-pub mod bytecode;
-pub mod constants;
 pub mod ast;
+pub mod bytecode;
 pub mod compiler;
-pub mod serializer;
+pub mod constants;
 pub mod debug;
+pub mod serializer;
 
 use ast::AST;
 use compiler::compile;

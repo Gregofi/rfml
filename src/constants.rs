@@ -13,9 +13,18 @@ pub enum Constant {
     Boolean(bool),
     Null,
     String(String),
-    Slot{name: ConstantPoolIndex},
-    Function{name: ConstantPoolIndex, parameters: u8, locals: u16, code: Code},
-    Object{members: Vec<ConstantPoolIndex>},
+    Slot {
+        name: ConstantPoolIndex,
+    },
+    Function {
+        name: ConstantPoolIndex,
+        parameters: u8,
+        locals: u16,
+        code: Code,
+    },
+    Object {
+        members: Vec<ConstantPoolIndex>,
+    },
 }
 
 impl From<i32> for Constant {
@@ -37,29 +46,34 @@ impl From<String> for Constant {
 }
 
 impl Serializable for Constant {
-    fn serializable_byte<W: std::io::Write> (&self, output: &mut W) -> std::io::Result<()> {
+    fn serializable_byte<W: std::io::Write>(&self, output: &mut W) -> std::io::Result<()> {
         match self {
             Constant::Integer(val) => {
                 output.write(&[0x00 as u8])?;
                 output.write(&(val.to_le_bytes()))?;
-            },
+            }
             Constant::Boolean(val) => {
                 output.write(&[0x06 as u8])?;
                 output.write(&((*val as u8).to_le_bytes()))?;
-            },
+            }
             Constant::Null => {
                 output.write(&[0x01 as u8])?;
-            },
+            }
             Constant::String(str) => {
                 output.write(&[0x02 as u8])?;
                 output.write(&(str.len() as u32).to_le_bytes())?;
                 output.write(str.as_bytes())?;
-            },
+            }
             Constant::Slot { name } => {
                 output.write(&0x04u8.to_le_bytes())?;
                 output.write(&name.to_le_bytes())?;
-            },
-            Constant::Function { name, parameters, locals, code } => {
+            }
+            Constant::Function {
+                name,
+                parameters,
+                locals,
+                code,
+            } => {
                 output.write(&[0x03 as u8])?;
                 output.write(&name.to_le_bytes())?;
                 output.write(&parameters.to_le_bytes())?;
@@ -68,10 +82,10 @@ impl Serializable for Constant {
                 for bytecode in code.insert_point.iter() {
                     bytecode.serializable_byte(output)?;
                 }
-            },
+            }
             Constant::Object { members } => {
                 output.write(&0x05u8.to_le_bytes())?;
-                output.write( &(members.len() as u16).to_le_bytes())?;
+                output.write(&(members.len() as u16).to_le_bytes())?;
                 for member in members.iter() {
                     output.write(&member.to_le_bytes())?;
                 }
@@ -84,7 +98,6 @@ impl Serializable for Constant {
 
 #[derive(Debug)]
 pub struct ConstantPool(Vec<Constant>);
-
 
 impl ConstantPool {
     pub fn new() -> Self {
@@ -106,14 +119,20 @@ impl ConstantPool {
     }
 
     pub fn find(&self, constant: &Constant) -> Option<ConstantPoolIndex> {
-        self.0.iter().position(|x| constant == x).map(|x| from_usize(x))
+        self.0
+            .iter()
+            .position(|x| constant == x)
+            .map(|x| from_usize(x))
     }
 
     pub fn find_by_str(&self, str: &String) -> Option<ConstantPoolIndex> {
-        self.0.iter().position(|x| match x {
-            Constant::String(val) => val == str,
-            _ => false,
-        }).map(|x| from_usize(x))
+        self.0
+            .iter()
+            .position(|x| match x {
+                Constant::String(val) => val == str,
+                _ => false,
+            })
+            .map(|x| from_usize(x))
     }
 
     pub fn len(&self) -> u16 {
@@ -121,9 +140,8 @@ impl ConstantPool {
     }
 }
 
-
 impl Serializable for ConstantPool {
-    fn serializable_byte<W: std::io::Write> (&self, output: &mut W) -> std::io::Result<()> {
+    fn serializable_byte<W: std::io::Write>(&self, output: &mut W) -> std::io::Result<()> {
         output.write(&self.len().to_le_bytes())?;
 
         for constant in self.0.iter() {
