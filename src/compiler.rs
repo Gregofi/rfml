@@ -576,43 +576,8 @@ fn _compile(
             if matches!(frame, Frame::Local(_)) {
                 return Err("Functions can't be nested");
             }
-
-            let mut env = VecEnvironments::new();
-
-            // Add arguments
-            for param in parameters.iter() {
-                env.introduce_variable(param.0.clone())?;
-            }
-
-            let mut frame = Frame::Local(env);
-            let mut fun_code = Code::new();
-
-            _compile(
-                body,
-                pool,
-                &mut fun_code,
-                &mut frame,
-                globals,
-                global_env,
-                generator,
-                false,
-            )?;
-            fun_code.write_inst(Bytecode::Return);
-
-            let locals_cnt = match frame {
-                Frame::Local(env) => env.var_cnt,
-                _ => unreachable!(),
-            };
-
-            let func = Constant::Function {
-                name: pool.push(Constant::from(name.0.clone())),
-                parameters: parameters.len().try_into().unwrap(),
-                locals: locals_cnt,
-                code: fun_code,
-            };
-
-            let fun_idx = pool.push(func);
-            globals.introduce_variable(fun_idx);
+            let func = compile_fun_def(name.0.clone(), parameters, body, false, pool, globals, global_env, generator)?;
+            globals.introduce_variable(func);
 
             Ok(())
         }
