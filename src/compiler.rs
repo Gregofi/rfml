@@ -510,7 +510,7 @@ fn _compile(
                 _compile(ast, pool, code, frame, globals, global_env, generator, false)?;
             }
             code.write_inst(Bytecode::CallMethod { name: method_idx, arguments: (arguments.len() + 1).try_into().unwrap() });
-            
+
             Ok(())
         },
         // Here, global statements or functions definitions are
@@ -656,6 +656,7 @@ fn _compile(
                 arguments: arguments.len().try_into().unwrap(),
             };
             code.write_inst(print);
+            code.write_inst_if(Bytecode::Drop, drop);
             Ok(())
         }
     }
