@@ -94,7 +94,11 @@ impl Serializable for Bytecode {
                 output.write(&0x06u8.to_le_bytes())?;
                 output.write(&name.to_le_bytes())?;
             }
-            Bytecode::CallMethod { name, arguments } => todo!(),
+            Bytecode::CallMethod { name, arguments } => {
+                output.write(&0x07u8.to_le_bytes())?;
+                output.write(&name.to_le_bytes())?;
+                output.write(&arguments.to_le_bytes())?;
+            },
             Bytecode::CallFunction { name, arguments } => {
                 output.write(&0x08u8.to_le_bytes())?;
                 output.write(&name.to_le_bytes())?;
