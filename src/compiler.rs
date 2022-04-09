@@ -1,8 +1,10 @@
+use crate::ast::Identifier;
 use crate::ast::AST;
 use crate::bytecode::*;
 use crate::constants::*;
 use crate::serializer::Serializable;
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::io::Write;
 
@@ -176,6 +178,51 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     Ok(())
 }
 
+fn compile_fun_def(
+    name: String,
+    parameters: &Vec<Identifier>,
+    body: &Box<AST>,
+    is_method: bool,
+    pool: &mut ConstantPool,
+    globals: &mut Globals,
+    global_env: &mut VecEnvironments,
+    generator: &mut RandomNameGenerator,
+) -> Result<ConstantPoolIndex, &'static str> {
+    let mut env = VecEnvironments::new();
+    if is_method {
+        env.introduce_variable(String::from("this"))?;
+    }
+
+    for param in parameters.iter() {
+        env.introduce_variable(param.0.clone())?;
+    }
+
+    let mut frame = Frame::Local(env);
+    let mut code = Code::new();
+
+    _compile(
+        &body, pool, &mut code, &mut frame, globals, global_env, generator, false,
+    )?;
+
+    code.write_inst(Bytecode::Return);
+
+    let locals = match frame {
+        Frame::Local(env) => env.var_cnt,
+        _ => unreachable!(),
+    };
+
+    let func = Constant::Function {
+        name: pool.push(Constant::from(name)),
+        parameters: parameters.len().try_into().unwrap(),
+        locals,
+        code,
+    };
+
+    let fun_idx = pool.push(func);
+
+    Ok(fun_idx)
+}
+
 fn _compile(
     ast: &AST,
     pool: &mut ConstantPool,
@@ -258,9 +305,17 @@ fn _compile(
                             name,
                             parameters,
                             body,
-                        } => {
-                            unimplemented!()
-                        }
+                        } => compile_fun_def(
+                            name.0.clone(),
+                            parameters,
+                            body,
+                            true,
+                            pool,
+                            globals,
+                            global_env,
+                            generator,
+                        )
+                        .expect("Compilation of method definition failed"),
                         AST::Variable { name, value } => {
                             _compile(
                                 &value, pool, code, frame, globals, global_env, generator, false,
@@ -322,7 +377,9 @@ fn _compile(
 
             Ok(())
         }
-        AST::AccessArray { array, index } => todo!(),
+        AST::AccessArray { array, index } => {
+            todo!()
+        }
         AST::AssignVariable { name, value } => {
             _compile(
                 value, pool, code, frame, globals, global_env, generator, false,
@@ -425,9 +482,10 @@ fn _compile(
             Ok(())
         }
         AST::CallFunction { name, arguments } => {
-            let fun_idx = pool
-                .find_by_str(&name.0)
-                .expect("Called function does not exist.");
+            // let fun_idx = pool
+            //     .find_by_str(&name.0)
+            //     .unwrap_or_else(|| panic!("Function '{}' does not exist.", &name.0));
+            let fun_idx = pool.push(Constant::from(name.0.clone()));
             for ast in arguments {
                 _compile(
                     ast, pool, code, frame, globals, global_env, generator, false,
@@ -443,7 +501,18 @@ fn _compile(
             object,
             name,
             arguments,
-        } => todo!(),
+        } => {
+            // let method_idx = pool.find_by_str(&name.0).expect("Called method does not exist.");
+            let method_idx = pool.push(Constant::from(name.0.clone()));
+            // Push object first and then the arguments.
+            _compile(object, pool, code, frame, globals, global_env, generator, false)?;
+            for ast in arguments {
+                _compile(ast, pool, code, frame, globals, global_env, generator, false)?;
+            }
+            code.write_inst(Bytecode::CallMethod { name: method_idx, arguments: (arguments.len() + 1).try_into().unwrap() });
+            
+            Ok(())
+        },
         // Here, global statements or functions definitions are
         AST::Top(asts) => {
             // Create the 'main' function
