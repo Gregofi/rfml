@@ -213,7 +213,7 @@ fn compile_fun_def(
 
     let func = Constant::Function {
         name: pool.push(Constant::from(name)),
-        parameters: parameters.len().try_into().unwrap(),
+        parameters: (parameters.len() + is_method as usize).try_into().unwrap(),
         locals,
         code,
     };
