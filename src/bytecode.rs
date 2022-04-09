@@ -85,7 +85,9 @@ impl Serializable for Bytecode {
                 output.write(&0x04u8.to_le_bytes())?;
                 output.write(&class.to_le_bytes())?;
             }
-            Bytecode::Array => todo!(),
+            Bytecode::Array => {
+                output.write(&0x03u8.to_le_bytes())?;
+            },
             Bytecode::GetField { name } => {
                 output.write(&0x05u8.to_le_bytes())?;
                 output.write(&name.to_le_bytes())?;

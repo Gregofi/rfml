@@ -289,7 +289,12 @@ fn _compile(
 
             Ok(())
         }
-        AST::Array { size, value } => todo!(),
+        AST::Array { size, value } => {
+            _compile(size, pool, code, frame, globals, global_env, generator, false)?;
+            _compile(value, pool, code, frame, globals, global_env, generator, false)?;
+            code.write_inst(Bytecode::Array);
+            Ok(())
+        },
         AST::Object { extends, members } => {
             _compile(
                 extends, pool, code, frame, globals, global_env, generator, false,
@@ -379,7 +384,12 @@ fn _compile(
             Ok(())
         }
         AST::AccessArray { array, index } => {
-            todo!()
+            _compile(array, pool, code, frame, globals, global_env, generator, false)?;
+            _compile(index, pool, code, frame, globals, global_env, generator, false)?;
+
+            let access_idx = pool.push(Constant::from(String::from("get")));
+            code.write_inst(Bytecode::CallMethod { name: access_idx, arguments: 2 });
+            Ok(())
         }
         AST::AssignVariable { name, value } => {
             _compile(
@@ -432,7 +442,15 @@ fn _compile(
             array,
             index,
             value,
-        } => todo!(),
+        } => {
+            _compile(array, pool, code, frame, globals, global_env, generator, false)?;
+            _compile(index, pool, code, frame, globals, global_env, generator, false)?;
+            _compile(value, pool, code, frame, globals, global_env, generator, false)?;
+
+            let access_idx = pool.push(Constant::from(String::from("set")));
+            code.write_inst(Bytecode::CallMethod { name: access_idx, arguments: 3 });
+            Ok(())
+        },
         AST::Function {
             name,
             parameters,
