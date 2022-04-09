@@ -21,6 +21,6 @@ fn main() -> std::io::Result<()> {
         let tree: AST = serde_json::from_str(&program).unwrap();
         compile(&tree)
     } else {
-        panic!("Following commands are supported: compile")
+        panic!("Following commands are supported: 'compile', received '{}'", args[1])
     }
 }

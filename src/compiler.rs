@@ -6,6 +6,7 @@ use crate::serializer::Serializable;
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
+use std::io;
 use std::io::Write;
 
 struct RandomNameGenerator {
@@ -162,7 +163,7 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     )
     .expect("Compilation failed");
 
-    let mut f = File::create("foo.bc").expect("Unable to open output file.");
+    let mut f = io::stdout();
     pool.serializable_byte(&mut f)?;
 
     // Serialize globals
@@ -172,8 +173,8 @@ pub fn compile(ast: &AST) -> std::io::Result<()> {
     // Entry point: Main function is always added last.
     f.write(&(pool.len() - 1 as u16).to_le_bytes())?;
 
-    println!("{:?}\n{:?}", pool, globals);
-    println!("EP: {0}", pool.len() - 1);
+    // println!("{:?}\n{:?}", pool, globals);
+    // println!("EP: {0}", pool.len() - 1);
 
     Ok(())
 }
@@ -533,7 +534,7 @@ fn _compile(
                 )?;
             }
 
-            println!("{:?}", global_env);
+            // println!("{:?}", global_env);
             let func_name = pool.push(Constant::from(String::from("λ:")));
             let fun = Constant::Function {
                 name: func_name,
