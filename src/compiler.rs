@@ -77,7 +77,7 @@ pub struct VecEnvironments {
 pub enum Frame {
     // For globals we use the variable and function names, so there is
     // no need to store it as indexes.
-    Top,
+    Global,
     // Locals are different kind of beast thought.
     Local(VecEnvironments),
 }
@@ -141,7 +141,7 @@ impl Environments for VecEnvironments {
 pub fn compile(ast: &AST) -> std::io::Result<()> {
     let mut pool = ConstantPool::new();
     let mut code_dummy = Code::new();
-    let mut frame = Frame::Top;
+    let mut frame = Frame::Global;
     let mut global_env = VecEnvironments::new();
     let mut globals = Globals::new();
     let mut generator = RandomNameGenerator::new();
@@ -263,7 +263,7 @@ fn _compile(
                     });
                     code.write_inst(Bytecode::SetLocal { index: index });
                 }
-                Frame::Top if !global_env.is_topmost() => {
+                Frame::Global if !global_env.is_topmost() => {
                     let index = global_env
                         .introduce_variable(name.0.clone())
                         .unwrap_or_else(|_| {
@@ -274,7 +274,7 @@ fn _compile(
                         });
                     code.write_inst(Bytecode::SetLocal { index: index });
                 }
-                Frame::Top => {
+                Frame::Global => {
                     let name_index = pool.push(Constant::from(String::from(name.as_str())));
                     let slot_index = pool.push(Constant::Slot { name: name_index });
                     globals.introduce_variable(slot_index);
@@ -401,7 +401,6 @@ fn _compile(
             )?;
 
             // Compile the members and save the members as constant pool indexes
-            // TODO: Probably return vec of results and then filter it
             let indexes: Vec<ConstantPoolIndex> = members
                 .iter()
                 .map(|ast| {
@@ -450,7 +449,7 @@ fn _compile(
                     code.write_inst(Bytecode::GetLocal { index: idx });
                 }
                 // In global scope but local because used in block
-                Frame::Top
+                Frame::Global
                     if !global_env.is_topmost() && global_env.has_variable(&name.0).is_some() =>
                 {
                     let idx = global_env
@@ -461,11 +460,7 @@ fn _compile(
                 // Global variable
                 _ => {
                     let idx = pool.push(Constant::from(name.0.clone()));
-                    // TODO: Check if global exists. It can't be done this way,
-                    // because they are saved as slots.
-                    // if !globals.contains(idx) {
-                    //     panic!("Global variable '{}' doesn't exist.", &name.0);
-                    // }
+                    // TODO: Check if global exists.
                     code.write_inst(Bytecode::GetGlobal { name: idx });
                 }
             };
@@ -507,7 +502,7 @@ fn _compile(
                     let idx = env.has_variable(&name.0).unwrap();
                     code.write_inst(Bytecode::SetLocal { index: idx });
                 }
-                Frame::Top
+                Frame::Global
                     if !global_env.is_topmost() && global_env.has_variable(&name.0).is_some() =>
                 {
                     let idx = global_env.has_variable(&name.0).unwrap();
@@ -632,7 +627,7 @@ fn _compile(
                     ast,
                     pool,
                     &mut code_main,
-                    &mut Frame::Top,
+                    &mut Frame::Global,
                     globals,
                     global_env,
                     generator,
@@ -655,7 +650,7 @@ fn _compile(
         }
         AST::Block(asts) => {
             match frame {
-                Frame::Top => {
+                Frame::Global => {
                     global_env.enter_scope();
                 }
                 Frame::Local(env) => {
@@ -679,7 +674,7 @@ fn _compile(
             }
 
             match frame {
-                Frame::Top => {
+                Frame::Global => {
                     global_env.leave_scope()?;
                 }
                 Frame::Local(env) => {
