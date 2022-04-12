@@ -468,8 +468,8 @@ fn _compile(
         }
         AST::AccessField { object, field } => {
             let field_idx = pool
-                .find_by_str(&field.0)
-                .unwrap_or_else(|| panic!("Field '{}' does not exist", field.0));
+                .push(Constant::from(field.0.clone()));
+
             // let slot_idx = pool.find(&Constant::Slot { name: field_idx }).expect("Slot doesn't exist");
             _compile(
                 object, pool, code, frame, globals, global_env, generator, drop,
